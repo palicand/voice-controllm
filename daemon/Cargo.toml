@@ -7,4 +7,10 @@ repository.workspace = true
 
 [dependencies]
 anyhow = "1.0.100"
+dirs = "6.0.0"
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
 tracing = "0.1.44"
+
+[dev-dependencies]
+tempfile = "3.20"

@@ -13,7 +13,20 @@ voice-controllm/
 └── menubar/            # Tauri system tray app (Phase 3)
 ```
 
+## Design Principles
+
+- **Parse, don't validate**: Use types that make invalid states unrepresentable. Prefer enums over stringly-typed fields where the set of valid values is known at compile time.
+
 ## Development
+
+**IMPORTANT**: All dependency changes must go through `cargo add`/`cargo remove` commands. Do not manually edit `Cargo.toml` for dependency changes.
+
+## Commits
+
+- Subject line only (e.g., `feat(daemon): add configuration management`)
+- Body is optional - only include when there's non-obvious context to convey
+- Don't describe code in the body - the diff shows that
+- No references to internal planning phases or documents
 
 ```bash
 # Build all crates
