@@ -1,3 +1,4 @@
+pub mod audio;
 pub mod config;
 
 fn main() {

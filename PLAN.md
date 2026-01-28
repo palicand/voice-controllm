@@ -36,17 +36,17 @@ For each phase:
 **Implementation**:
 - [x] `config.rs` with Config, ModelConfig, LatencyConfig, InjectionConfig structs
 
-#### 1.2 Audio Capture
+#### 1.2 Audio Capture ✅
 **Design**: Capture audio from default input device, resample to 16kHz mono
 **Tests first**:
-- [ ] [Unit] Test audio buffer creation and management
-- [ ] [Unit] Test resampling logic with synthetic audio data
-- [ ] [Unit] Test audio format conversion (stereo to mono, sample rates)
-- [ ] [Integration] Test resampling produces correct output with fixture audio
-- [ ] [Hardware] Test capture from real microphone device
+- [x] [Unit] Test audio buffer creation and management
+- [x] [Unit] Test resampling logic with synthetic audio data
+- [x] [Unit] Test audio format conversion (stereo to mono, sample rates)
+- [x] [Integration] Test resampling produces correct output with fixture audio
+- [x] [Hardware] Test capture from real microphone device
 **Implementation**:
-- [ ] `audio.rs` with AudioCapture struct using `cpal`
-- [ ] Resampling with `rubato`
+- [x] `audio.rs` with AudioCapture struct using `cpal`
+- [x] Resampling with `rubato`
 
 #### 1.3 Voice Activity Detection (VAD)
 **Design**: Detect speech segments using Silero VAD ONNX model
