@@ -36,6 +36,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Download VAD model
+        run: |
+          mkdir -p models
+          curl -L -o models/silero_vad.onnx \
+            https://github.com/snakers4/silero-vad/raw/master/src/silero_vad/data/silero_vad.onnx
       - name: Test
         run: cargo test
 
