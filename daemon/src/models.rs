@@ -3,6 +3,8 @@
 //! Handles automatic downloading of ML models on first run.
 
 use anyhow::{Context, Result};
+use futures_util::StreamExt;
+use indicatif::{ProgressBar, ProgressStyle};
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
@@ -179,7 +181,7 @@ impl ModelManager {
         Ok(model_path)
     }
 
-    /// Download a model from its URL.
+    /// Download a model from its URL with progress bar.
     async fn download_model(&self, info: &ModelInfo, dest: &Path) -> Result<()> {
         // Ensure directory exists
         if let Some(parent) = dest.parent() {
@@ -202,38 +204,67 @@ impl ModelManager {
             anyhow::bail!("Failed to download model: HTTP {}", response.status());
         }
 
-        let bytes = response
-            .bytes()
-            .await
-            .context("Failed to read response body")?;
+        // Get content length for progress bar
+        let total_size = response.content_length().or(info.size_bytes).unwrap_or(0);
 
-        if let Some(expected) = info.size_bytes {
-            if bytes.len() as u64 != expected {
-                anyhow::bail!(
-                    "Downloaded model size mismatch: expected {}, got {}",
-                    expected,
-                    bytes.len()
-                );
-            }
-        }
+        // Set up progress bar
+        let pb = ProgressBar::new(total_size);
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("{msg}\n{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
+                .expect("Invalid progress template")
+                .progress_chars("#>-"),
+        );
+        pb.set_message(format!("Downloading {}", info.filename));
 
-        // Write to temporary file first, then rename (atomic)
+        // Stream download to file
         let temp_path = dest.with_extension("tmp");
         let mut file = fs::File::create(&temp_path)
             .await
             .context("Failed to create temporary model file")?;
-        file.write_all(&bytes)
-            .await
-            .context("Failed to write model file")?;
-        file.sync_all().await.context("Failed to sync model file")?;
 
+        let mut stream = response.bytes_stream();
+        let mut downloaded: u64 = 0;
+
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.context("Error reading download stream")?;
+            file.write_all(&chunk)
+                .await
+                .context("Failed to write chunk")?;
+            downloaded += chunk.len() as u64;
+            pb.set_position(downloaded);
+        }
+
+        file.sync_all().await.context("Failed to sync model file")?;
+        drop(file);
+
+        // Validate size if known
+        if let Some(expected) = info.size_bytes {
+            if downloaded != expected {
+                // Clean up partial download
+                let _ = fs::remove_file(&temp_path).await;
+                pb.abandon_with_message(format!(
+                    "Download failed: size mismatch (expected {}, got {})",
+                    expected, downloaded
+                ));
+                anyhow::bail!(
+                    "Downloaded model size mismatch: expected {}, got {}",
+                    expected,
+                    downloaded
+                );
+            }
+        }
+
+        // Atomic rename
         fs::rename(&temp_path, dest)
             .await
             .context("Failed to finalize model file")?;
 
+        pb.finish_with_message(format!("Downloaded {}", info.filename));
+
         info!(
             path = %dest.display(),
-            size = bytes.len(),
+            size = downloaded,
             "Model downloaded successfully"
         );
 
