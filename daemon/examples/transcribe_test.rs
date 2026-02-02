@@ -11,6 +11,7 @@
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use tokio::signal;
 use tracing_subscriber::EnvFilter;
 use voice_controllm_daemon::config::Config;
 use voice_controllm_daemon::engine::Engine;
@@ -35,22 +36,26 @@ async fn main() -> anyhow::Result<()> {
 
     let mut engine = Engine::new(config)?;
 
-    // Handle Ctrl+C
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
-    ctrlc::set_handler(move || {
-        println!("\nStopping...");
-        r.store(false, Ordering::SeqCst);
-    })?;
 
     println!("Starting engine...");
     println!();
 
-    engine
-        .run(running, |text| {
+    // Use tokio::select! to race the engine against Ctrl+C
+    tokio::select! {
+        result = engine.run(running, |text| {
             println!(">>> {}", text);
-        })
-        .await?;
+        }) => {
+            if let Err(e) = result {
+                eprintln!("Engine error: {}", e);
+            }
+        }
+        _ = signal::ctrl_c() => {
+            println!("\nCtrl+C received, stopping...");
+            r.store(false, Ordering::SeqCst);
+        }
+    }
 
     println!("Done.");
     Ok(())
