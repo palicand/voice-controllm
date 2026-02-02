@@ -6,7 +6,7 @@ fn test_default_config_values() {
     let config = Config::default();
 
     // Model defaults
-    assert_eq!(config.model.model, SpeechModel::Canary1b);
+    assert_eq!(config.model.model, SpeechModel::WhisperBase);
     assert_eq!(config.model.languages, vec!["auto"]);
 
     // Latency defaults
@@ -171,14 +171,14 @@ fn test_latency_mode_serialization() {
 fn test_speech_model_serialization() {
     let config = Config {
         model: ModelConfig {
-            model: SpeechModel::Canary1b,
+            model: SpeechModel::WhisperBase,
             ..Default::default()
         },
         ..Default::default()
     };
 
     let toml_str = toml::to_string(&config).unwrap();
-    assert!(toml_str.contains("model = \"canary1b\""));
+    assert!(toml_str.contains("model = \"whisper-base\""));
 }
 
 #[test]

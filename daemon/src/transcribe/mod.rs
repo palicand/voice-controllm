@@ -5,9 +5,9 @@
 
 use anyhow::Result;
 
-mod canary;
+mod whisper;
 
-pub use canary::CanaryTranscriber;
+pub use whisper::WhisperTranscriber;
 
 /// Speech-to-text transcriber.
 ///
@@ -16,8 +16,8 @@ pub trait Transcriber: Send + Sync {
     /// Transcribe audio samples to text.
     ///
     /// # Arguments
-    /// * `audio` - Audio samples as f32, expected to be mono
-    /// * `sample_rate` - Sample rate of the audio in Hz
+    /// * `audio` - Audio samples as f32, expected to be 16kHz mono
+    /// * `sample_rate` - Sample rate of the audio in Hz (must be 16000)
     ///
     /// # Returns
     /// The transcribed text, or an error if transcription failed.

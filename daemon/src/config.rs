@@ -49,21 +49,16 @@ pub enum LatencyMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum SpeechModel {
-    // Canary models (NVIDIA NeMo) - default
-    #[default]
-    Canary1b,
-
-    // Whisper models (OpenAI)
+    // Whisper models (OpenAI) - via whisper.cpp
     WhisperTiny,
     WhisperTinyEn,
+    #[default]
     WhisperBase,
     WhisperBaseEn,
     WhisperSmall,
     WhisperSmallEn,
     WhisperMedium,
     WhisperMediumEn,
-    WhisperLargeV1,
-    WhisperLargeV2,
     WhisperLargeV3,
     WhisperLargeV3Turbo,
 }

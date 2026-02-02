@@ -13,9 +13,29 @@ use tracing::{debug, info, warn};
 pub enum ModelId {
     /// Silero VAD model for voice activity detection.
     SileroVad,
-    /// NVIDIA Canary 1B model for speech-to-text.
-    Canary1b,
+    /// Whisper tiny model (~75MB).
+    WhisperTiny,
+    /// Whisper tiny English-only model (~75MB).
+    WhisperTinyEn,
+    /// Whisper base model (~150MB).
+    WhisperBase,
+    /// Whisper base English-only model (~150MB).
+    WhisperBaseEn,
+    /// Whisper small model (~500MB).
+    WhisperSmall,
+    /// Whisper small English-only model (~500MB).
+    WhisperSmallEn,
+    /// Whisper medium model (~1.5GB).
+    WhisperMedium,
+    /// Whisper medium English-only model (~1.5GB).
+    WhisperMediumEn,
+    /// Whisper large-v3 model (~3GB).
+    WhisperLargeV3,
+    /// Whisper large-v3-turbo model (~1.5GB).
+    WhisperLargeV3Turbo,
 }
+
+const WHISPER_BASE_URL: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main";
 
 impl ModelId {
     /// Get model metadata.
@@ -23,14 +43,58 @@ impl ModelId {
         match self {
             ModelId::SileroVad => ModelInfo {
                 filename: "silero_vad.onnx",
-                url: "https://github.com/snakers4/silero-vad/raw/master/src/silero_vad/data/silero_vad.onnx",
+                url: "https://github.com/snakers4/silero-vad/raw/master/src/silero_vad/data/silero_vad.onnx".to_string(),
                 size_bytes: Some(2_327_524),
             },
-            ModelId::Canary1b => ModelInfo {
-                filename: "canary-1b.onnx",
-                // TODO: Update with actual Canary model URL from HuggingFace/NVIDIA
-                url: "https://huggingface.co/nvidia/canary-1b/resolve/main/canary-1b.onnx",
-                size_bytes: None, // ~1GB, exact size TBD
+            ModelId::WhisperTiny => ModelInfo {
+                filename: "ggml-tiny.bin",
+                url: format!("{}/ggml-tiny.bin", WHISPER_BASE_URL),
+                size_bytes: Some(77_691_713),
+            },
+            ModelId::WhisperTinyEn => ModelInfo {
+                filename: "ggml-tiny.en.bin",
+                url: format!("{}/ggml-tiny.en.bin", WHISPER_BASE_URL),
+                size_bytes: Some(77_704_715),
+            },
+            ModelId::WhisperBase => ModelInfo {
+                filename: "ggml-base.bin",
+                url: format!("{}/ggml-base.bin", WHISPER_BASE_URL),
+                size_bytes: Some(147_951_465),
+            },
+            ModelId::WhisperBaseEn => ModelInfo {
+                filename: "ggml-base.en.bin",
+                url: format!("{}/ggml-base.en.bin", WHISPER_BASE_URL),
+                size_bytes: Some(147_964_211),
+            },
+            ModelId::WhisperSmall => ModelInfo {
+                filename: "ggml-small.bin",
+                url: format!("{}/ggml-small.bin", WHISPER_BASE_URL),
+                size_bytes: Some(487_601_967),
+            },
+            ModelId::WhisperSmallEn => ModelInfo {
+                filename: "ggml-small.en.bin",
+                url: format!("{}/ggml-small.en.bin", WHISPER_BASE_URL),
+                size_bytes: Some(487_614_201),
+            },
+            ModelId::WhisperMedium => ModelInfo {
+                filename: "ggml-medium.bin",
+                url: format!("{}/ggml-medium.bin", WHISPER_BASE_URL),
+                size_bytes: Some(1_533_774_781),
+            },
+            ModelId::WhisperMediumEn => ModelInfo {
+                filename: "ggml-medium.en.bin",
+                url: format!("{}/ggml-medium.en.bin", WHISPER_BASE_URL),
+                size_bytes: Some(1_533_774_781),
+            },
+            ModelId::WhisperLargeV3 => ModelInfo {
+                filename: "ggml-large-v3.bin",
+                url: format!("{}/ggml-large-v3.bin", WHISPER_BASE_URL),
+                size_bytes: Some(3_094_623_691),
+            },
+            ModelId::WhisperLargeV3Turbo => ModelInfo {
+                filename: "ggml-large-v3-turbo.bin",
+                url: format!("{}/ggml-large-v3-turbo.bin", WHISPER_BASE_URL),
+                size_bytes: Some(1_624_592_891),
             },
         }
     }
@@ -41,7 +105,7 @@ struct ModelInfo {
     /// Filename to save as.
     filename: &'static str,
     /// Download URL.
-    url: &'static str,
+    url: String,
     /// Expected file size for validation (optional).
     size_bytes: Option<u64>,
 }
@@ -125,12 +189,12 @@ impl ModelManager {
         }
 
         info!(
-            url = info.url,
+            url = %info.url,
             dest = %dest.display(),
             "Downloading model"
         );
 
-        let response = reqwest::get(info.url)
+        let response = reqwest::get(&info.url)
             .await
             .with_context(|| format!("Failed to download model from {}", info.url))?;
 
