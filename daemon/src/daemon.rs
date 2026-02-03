@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, oneshot};
 use tonic::transport::Server;
 use tracing::info;
 
@@ -26,9 +26,12 @@ pub async fn run() -> Result<()> {
     let listener = create_listener(&sock_path)?;
     info!(path = %sock_path.display(), "Listening on Unix socket");
 
+    // Create shutdown channel
+    let (shutdown_tx, shutdown_rx) = oneshot::channel();
+
     // Create controller with event channel
     let (event_tx, _) = broadcast::channel(256);
-    let controller = Arc::new(Controller::new(event_tx));
+    let controller = Arc::new(Controller::new(event_tx, shutdown_tx));
 
     // Create gRPC service
     let service = VoiceControllmService::new(controller.clone());
@@ -45,12 +48,16 @@ pub async fn run() -> Result<()> {
         }
     };
 
-    // Run server
+    // Run server with graceful shutdown
     info!("Daemon started");
-    let result = Server::builder()
+    let server = Server::builder()
         .add_service(service.into_server())
-        .serve_with_incoming(incoming)
-        .await;
+        .serve_with_incoming_shutdown(incoming, async {
+            let _ = shutdown_rx.await;
+            info!("Shutdown signal received");
+        });
+
+    let result = server.await;
 
     // Cleanup
     cleanup_socket(&sock_path);

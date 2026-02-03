@@ -48,7 +48,7 @@ impl VoiceControllm for VoiceControllmService {
     }
 
     async fn shutdown(&self, _request: Request<Empty>) -> Result<Response<Empty>, Status> {
-        // Will be implemented in Task 8
+        self.controller.shutdown().await;
         Ok(Response::new(Empty {}))
     }
 
@@ -86,12 +86,13 @@ impl VoiceControllm for VoiceControllmService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::sync::broadcast;
+    use tokio::sync::{broadcast, oneshot};
 
     #[test]
     fn test_service_creation() {
         let (tx, _rx) = broadcast::channel(16);
-        let controller = Arc::new(Controller::new(tx));
+        let (shutdown_tx, _shutdown_rx) = oneshot::channel();
+        let controller = Arc::new(Controller::new(tx, shutdown_tx));
         let _service = VoiceControllmService::new(controller);
     }
 }

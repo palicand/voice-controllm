@@ -1,7 +1,7 @@
 //! Controller manages daemon state and coordinates components.
 
 use std::sync::Arc;
-use tokio::sync::{RwLock, broadcast};
+use tokio::sync::{RwLock, broadcast, oneshot};
 use voice_controllm_proto::{Event, State, StateChange};
 
 /// Controller state.
@@ -29,14 +29,16 @@ pub type EventSender = broadcast::Sender<Event>;
 pub struct Controller {
     state: Arc<RwLock<ControllerState>>,
     event_tx: EventSender,
+    shutdown_tx: Arc<RwLock<Option<oneshot::Sender<()>>>>,
 }
 
 impl Controller {
-    /// Create a new controller.
-    pub fn new(event_tx: EventSender) -> Self {
+    /// Create a new controller with a shutdown channel.
+    pub fn new(event_tx: EventSender, shutdown_tx: oneshot::Sender<()>) -> Self {
         Self {
             state: Arc::new(RwLock::new(ControllerState::Paused)),
             event_tx,
+            shutdown_tx: Arc::new(RwLock::new(Some(shutdown_tx))),
         }
     }
 
@@ -54,7 +56,7 @@ impl Controller {
                 self.broadcast_state_change(ControllerState::Listening);
                 Ok(())
             }
-            ControllerState::Listening => Ok(()), // Already listening
+            ControllerState::Listening => Ok(()),
             ControllerState::Stopped => Err("Daemon is stopped".to_string()),
         }
     }
@@ -68,8 +70,20 @@ impl Controller {
                 self.broadcast_state_change(ControllerState::Paused);
                 Ok(())
             }
-            ControllerState::Paused => Ok(()), // Already paused
+            ControllerState::Paused => Ok(()),
             ControllerState::Stopped => Err("Daemon is stopped".to_string()),
+        }
+    }
+
+    /// Trigger shutdown.
+    pub async fn shutdown(&self) {
+        let mut state = self.state.write().await;
+        *state = ControllerState::Stopped;
+        self.broadcast_state_change(ControllerState::Stopped);
+
+        // Send shutdown signal
+        if let Some(tx) = self.shutdown_tx.write().await.take() {
+            let _ = tx.send(());
         }
     }
 
@@ -84,7 +98,6 @@ impl Controller {
                 },
             )),
         };
-        // Ignore send errors (no subscribers)
         let _ = self.event_tx.send(event);
     }
 
@@ -98,40 +111,51 @@ impl Controller {
 mod tests {
     use super::*;
 
+    fn create_controller() -> (Controller, oneshot::Receiver<()>) {
+        let (event_tx, _) = broadcast::channel(16);
+        let (shutdown_tx, shutdown_rx) = oneshot::channel();
+        (Controller::new(event_tx, shutdown_tx), shutdown_rx)
+    }
+
     #[tokio::test]
     async fn test_initial_state_is_paused() {
-        let (tx, _rx) = broadcast::channel(16);
-        let controller = Controller::new(tx);
+        let (controller, _) = create_controller();
         assert_eq!(controller.state().await, ControllerState::Paused);
     }
 
     #[tokio::test]
     async fn test_start_listening_from_paused() {
-        let (tx, _rx) = broadcast::channel(16);
-        let controller = Controller::new(tx);
-
+        let (controller, _) = create_controller();
         controller.start_listening().await.unwrap();
         assert_eq!(controller.state().await, ControllerState::Listening);
     }
 
     #[tokio::test]
     async fn test_stop_listening_from_listening() {
-        let (tx, _rx) = broadcast::channel(16);
-        let controller = Controller::new(tx);
-
+        let (controller, _) = create_controller();
         controller.start_listening().await.unwrap();
         controller.stop_listening().await.unwrap();
         assert_eq!(controller.state().await, ControllerState::Paused);
     }
 
     #[tokio::test]
+    async fn test_shutdown_sends_signal() {
+        let (controller, shutdown_rx) = create_controller();
+        controller.shutdown().await;
+        assert_eq!(controller.state().await, ControllerState::Stopped);
+        // Receiver should complete (not hang)
+        assert!(shutdown_rx.await.is_ok());
+    }
+
+    #[tokio::test]
     async fn test_start_listening_broadcasts_event() {
-        let (tx, mut rx) = broadcast::channel(16);
-        let controller = Controller::new(tx);
+        let (event_tx, mut event_rx) = broadcast::channel(16);
+        let (shutdown_tx, _) = oneshot::channel();
+        let controller = Controller::new(event_tx, shutdown_tx);
 
         controller.start_listening().await.unwrap();
 
-        let event = rx.recv().await.unwrap();
+        let event = event_rx.recv().await.unwrap();
         match event.event {
             Some(voice_controllm_proto::event::Event::StateChange(change)) => match change.status {
                 Some(voice_controllm_proto::state_change::Status::NewState(state)) => {
