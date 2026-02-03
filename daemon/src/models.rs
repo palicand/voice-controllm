@@ -96,7 +96,7 @@ impl ModelId {
             ModelId::WhisperLargeV3Turbo => ModelInfo {
                 filename: "ggml-large-v3-turbo.bin",
                 url: format!("{}/ggml-large-v3-turbo.bin", WHISPER_BASE_URL),
-                size_bytes: Some(1_624_592_891),
+                size_bytes: Some(1_624_555_275),
             },
         }
     }
@@ -120,11 +120,12 @@ pub struct ModelManager {
 impl ModelManager {
     /// Create a new ModelManager using the default models directory.
     ///
-    /// Default: `~/.local/share/voice-controllm/models/`
+    /// Default: `~/.local/share/voice-controllm/models/` (or `$XDG_DATA_HOME/voice-controllm/models/`)
     pub fn new() -> Result<Self> {
-        let models_dir = dirs::data_dir()
-            .context("Could not determine data directory")?
-            .join("voice-controllm")
+        let xdg = xdg::BaseDirectories::with_prefix("voice-controllm");
+        let models_dir = xdg
+            .get_data_home()
+            .context("Could not determine data directory (HOME not set?)")?
             .join("models");
         Ok(Self { models_dir })
     }
@@ -181,7 +182,7 @@ impl ModelManager {
         Ok(model_path)
     }
 
-    /// Download a model from its URL with progress bar.
+    /// Download a model from its URL with progress bar and resume support.
     async fn download_model(&self, info: &ModelInfo, dest: &Path) -> Result<()> {
         // Ensure directory exists
         if let Some(parent) = dest.parent() {
@@ -190,22 +191,86 @@ impl ModelManager {
                 .context("Failed to create models directory")?;
         }
 
+        let temp_path = dest.with_extension("tmp");
+
+        // Check for existing partial download
+        let existing_size = if temp_path.exists() {
+            let metadata = fs::metadata(&temp_path)
+                .await
+                .context("Failed to read partial download metadata")?;
+            metadata.len()
+        } else {
+            0
+        };
+
+        // Get total size for progress bar
+        let total_size = info.size_bytes.unwrap_or(0);
+
+        // If we already have the complete file, just validate and rename
+        if existing_size > 0 && info.size_bytes == Some(existing_size) {
+            info!(
+                path = %temp_path.display(),
+                size = existing_size,
+                "Found complete partial download, finalizing"
+            );
+            fs::rename(&temp_path, dest)
+                .await
+                .context("Failed to finalize model file")?;
+            return Ok(());
+        }
+
         info!(
             url = %info.url,
             dest = %dest.display(),
+            resuming_from = existing_size,
             "Downloading model"
         );
 
-        let response = reqwest::get(&info.url)
+        // Build request with Range header for resume
+        let client = reqwest::Client::new();
+        let mut request = client.get(&info.url);
+
+        if existing_size > 0 {
+            info!(
+                bytes_downloaded = existing_size,
+                "Resuming download from byte {}", existing_size
+            );
+            request = request.header("Range", format!("bytes={}-", existing_size));
+        }
+
+        let response = request
+            .send()
             .await
             .with_context(|| format!("Failed to download model from {}", info.url))?;
 
-        if !response.status().is_success() {
-            anyhow::bail!("Failed to download model: HTTP {}", response.status());
+        let status = response.status();
+        debug!(
+            status = %status,
+            url = %response.url(),
+            "Received response"
+        );
+
+        // Handle 416 Range Not Satisfiable - delete partial and retry from scratch
+        if status == reqwest::StatusCode::RANGE_NOT_SATISFIABLE {
+            warn!("Server rejected range request (416), restarting download from scratch");
+            let _ = fs::remove_file(&temp_path).await;
+            // Recursive call without the partial file
+            return Box::pin(self.download_model(info, dest)).await;
         }
 
-        // Get content length for progress bar
-        let total_size = response.content_length().or(info.size_bytes).unwrap_or(0);
+        if !status.is_success() && status != reqwest::StatusCode::PARTIAL_CONTENT {
+            anyhow::bail!("Failed to download model: HTTP {} from {}", status, response.url());
+        }
+
+        // Check if server supports range requests
+        let is_resume = status == reqwest::StatusCode::PARTIAL_CONTENT;
+        let downloaded_start = if is_resume { existing_size } else { 0 };
+
+        // If server doesn't support resume and we have partial data, start fresh
+        if !is_resume && existing_size > 0 {
+            warn!("Server doesn't support resume, starting download from scratch");
+            let _ = fs::remove_file(&temp_path).await;
+        }
 
         // Set up progress bar
         let pb = ProgressBar::new(total_size);
@@ -216,15 +281,20 @@ impl ModelManager {
                 .progress_chars("#>-"),
         );
         pb.set_message(format!("Downloading {}", info.filename));
+        pb.set_position(downloaded_start);
 
-        // Stream download to file
-        let temp_path = dest.with_extension("tmp");
-        let mut file = fs::File::create(&temp_path)
+        // Open file for writing (append if resuming)
+        let mut file = fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .append(is_resume)
+            .truncate(!is_resume)
+            .open(&temp_path)
             .await
-            .context("Failed to create temporary model file")?;
+            .context("Failed to open temporary model file")?;
 
         let mut stream = response.bytes_stream();
-        let mut downloaded: u64 = 0;
+        let mut downloaded: u64 = downloaded_start;
 
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.context("Error reading download stream")?;
@@ -241,14 +311,13 @@ impl ModelManager {
         // Validate size if known
         if let Some(expected) = info.size_bytes {
             if downloaded != expected {
-                // Clean up partial download
-                let _ = fs::remove_file(&temp_path).await;
+                // Keep partial download for potential resume
                 pb.abandon_with_message(format!(
-                    "Download failed: size mismatch (expected {}, got {})",
-                    expected, downloaded
+                    "Download incomplete: got {} of {} bytes (will resume on next attempt)",
+                    downloaded, expected
                 ));
                 anyhow::bail!(
-                    "Downloaded model size mismatch: expected {}, got {}",
+                    "Downloaded model size mismatch: expected {}, got {} (partial download saved for resume)",
                     expected,
                     downloaded
                 );

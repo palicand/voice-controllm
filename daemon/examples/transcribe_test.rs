@@ -25,11 +25,10 @@ async fn main() -> anyhow::Result<()> {
     println!("Voice-Controllm Transcription Test");
     println!("===================================");
     println!();
-    println!("This will download models on first run (~150MB for whisper-base).");
-    println!("Press Ctrl+C to stop.");
+    println!("Press Ctrl+C to stop at any time.");
     println!();
 
-    let config = Config::default();
+    let config = Config::load()?;
     println!("Model: {:?}", config.model.model);
     println!("Languages: {:?}", config.model.languages);
     println!();
@@ -42,18 +41,21 @@ async fn main() -> anyhow::Result<()> {
     println!("Starting engine...");
     println!();
 
-    // Use tokio::select! to race the engine against Ctrl+C
+    // Race engine against Ctrl+C - when Ctrl+C fires, the engine future is dropped
     tokio::select! {
+        biased;
+
+        _ = signal::ctrl_c() => {
+            println!("\nCtrl+C received, stopping...");
+            r.store(false, Ordering::SeqCst);
+        }
+
         result = engine.run(running, |text| {
             println!(">>> {}", text);
         }) => {
             if let Err(e) = result {
-                eprintln!("Engine error: {}", e);
+                eprintln!("Engine error: {:#}", e);
             }
-        }
-        _ = signal::ctrl_c() => {
-            println!("\nCtrl+C received, stopping...");
-            r.store(false, Ordering::SeqCst);
         }
     }
 

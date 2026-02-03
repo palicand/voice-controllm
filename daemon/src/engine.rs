@@ -100,7 +100,7 @@ impl Engine {
         } else {
             self.config.model.languages.first().cloned()
         };
-        let transcriber = WhisperTranscriber::new(&whisper_model_path, language)
+        let mut transcriber = WhisperTranscriber::new(&whisper_model_path, language)
             .context("Failed to initialize Whisper")?;
 
         // Initialize audio capture
@@ -188,7 +188,7 @@ impl Engine {
             }
 
             // Small sleep to avoid busy-waiting
-            std::thread::sleep(std::time::Duration::from_millis(10));
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
 
         capture.stop();

@@ -6,6 +6,8 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+const APP_NAME: &str = "voice-controllm";
+
 /// Main configuration struct for the daemon.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -92,11 +94,11 @@ impl Default for LatencyConfig {
 
 impl Config {
     /// Returns the default config directory path.
-    /// `~/.config/voice-controllm/`
+    /// `~/.config/voice-controllm/` (or `$XDG_CONFIG_HOME/voice-controllm/`)
     pub fn config_dir() -> Result<PathBuf> {
-        dirs::config_dir()
-            .map(|p| p.join("voice-controllm"))
-            .context("Could not determine config directory")
+        let xdg = xdg::BaseDirectories::with_prefix(APP_NAME);
+        xdg.get_config_home()
+            .context("Could not determine config directory (HOME not set?)")
     }
 
     /// Returns the default config file path.
@@ -106,11 +108,11 @@ impl Config {
     }
 
     /// Returns the default data directory path.
-    /// `~/.local/share/voice-controllm/`
+    /// `~/.local/share/voice-controllm/` (or `$XDG_DATA_HOME/voice-controllm/`)
     pub fn data_dir() -> Result<PathBuf> {
-        dirs::data_dir()
-            .map(|p| p.join("voice-controllm"))
-            .context("Could not determine data directory")
+        let xdg = xdg::BaseDirectories::with_prefix(APP_NAME);
+        xdg.get_data_home()
+            .context("Could not determine data directory (HOME not set?)")
     }
 
     /// Returns the default models directory path.

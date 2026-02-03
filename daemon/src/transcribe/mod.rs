@@ -12,7 +12,7 @@ pub use whisper::WhisperTranscriber;
 /// Speech-to-text transcriber.
 ///
 /// Implementations convert audio samples to text.
-pub trait Transcriber: Send + Sync {
+pub trait Transcriber: Send {
     /// Transcribe audio samples to text.
     ///
     /// # Arguments
@@ -21,5 +21,5 @@ pub trait Transcriber: Send + Sync {
     ///
     /// # Returns
     /// The transcribed text, or an error if transcription failed.
-    fn transcribe(&self, audio: &[f32], sample_rate: u32) -> Result<String>;
+    fn transcribe(&mut self, audio: &[f32], sample_rate: u32) -> Result<String>;
 }

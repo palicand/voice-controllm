@@ -17,7 +17,6 @@ path = "src/main.rs"
 anyhow = "1.0.100"
 audioadapter-buffers = "2.0.0"
 cpal = "0.17.1"
-dirs = "6.0.0"
 futures-util = "0.3.31"
 indicatif = "0.18.3"
 ndarray = "0.17.2"
@@ -29,6 +28,7 @@ tokio = { version = "1.49.0", features = ["rt", "fs", "io-util", "rt-multi-threa
 toml = "0.8"
 tracing = "0.1.44"
 whisper-rs = { version = "0.15.1", features = ["coreml"] }
+xdg = "3.0.0"
 
 [dev-dependencies]
 ctrlc = "3.5.1"

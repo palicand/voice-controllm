@@ -6,11 +6,15 @@ use super::Transcriber;
 use anyhow::{Context, Result};
 use std::path::Path;
 use tracing::{debug, info};
-use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
+use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperState};
 
 /// Whisper speech-to-text transcriber.
+///
+/// The underlying WhisperContext is leaked intentionally - for a long-running daemon,
+/// the model stays loaded for the process lifetime. This avoids complex self-referential
+/// struct patterns while allowing the state to be reused across transcriptions.
 pub struct WhisperTranscriber {
-    ctx: WhisperContext,
+    state: WhisperState,
     language: Option<String>,
 }
 
@@ -33,9 +37,18 @@ impl WhisperTranscriber {
         )
         .context("Failed to load Whisper model")?;
 
-        info!("Whisper model loaded successfully");
+        // Box and leak the context to get a 'static reference.
+        // This is intentional for a long-running daemon - the model stays loaded for the process lifetime.
+        let ctx_box = Box::new(ctx);
+        let ctx_ref: &'static WhisperContext = Box::leak(ctx_box);
 
-        Ok(Self { ctx, language })
+        let state = ctx_ref
+            .create_state()
+            .context("Failed to create Whisper state")?;
+
+        info!("Whisper model and state loaded successfully");
+
+        Ok(Self { state, language })
     }
 
     /// Get the configured language.
@@ -45,7 +58,7 @@ impl WhisperTranscriber {
 }
 
 impl Transcriber for WhisperTranscriber {
-    fn transcribe(&self, audio: &[f32], sample_rate: u32) -> Result<String> {
+    fn transcribe(&mut self, audio: &[f32], sample_rate: u32) -> Result<String> {
         debug!(
             samples = audio.len(),
             sample_rate = sample_rate,
@@ -60,11 +73,6 @@ impl Transcriber for WhisperTranscriber {
                 sample_rate
             );
         }
-
-        let mut state = self
-            .ctx
-            .create_state()
-            .context("Failed to create Whisper state")?;
 
         let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
 
@@ -84,17 +92,17 @@ impl Transcriber for WhisperTranscriber {
         // Single segment mode for lower latency
         params.set_single_segment(true);
 
-        // Run inference
-        state
+        // Run inference using the pre-created state
+        self.state
             .full(params, audio)
             .context("Whisper inference failed")?;
 
         // Collect all segments
-        let num_segments = state.full_n_segments();
+        let num_segments = self.state.full_n_segments();
         let mut result = String::new();
 
         for i in 0..num_segments {
-            if let Some(segment) = state.get_segment(i) {
+            if let Some(segment) = self.state.get_segment(i) {
                 if let Ok(text) = segment.to_str_lossy() {
                     result.push_str(&text);
                 }
