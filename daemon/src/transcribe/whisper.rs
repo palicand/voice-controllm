@@ -6,7 +6,9 @@ use super::Transcriber;
 use anyhow::{Context, Result};
 use std::path::Path;
 use tracing::{debug, info};
-use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperState};
+use whisper_rs::{
+    FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperState,
+};
 
 /// Whisper speech-to-text transcriber.
 ///

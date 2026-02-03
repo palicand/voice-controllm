@@ -28,40 +28,30 @@ When resuming a download, the progress bar shows inflated download speeds initia
 
 ## Performance
 
-### CoreML Encoder Generation
-**Status:** Manual process documented
+### CoreML Encoder
+**Status:** ✅ Implemented - auto-downloaded from Hugging Face
 
-On Apple Silicon, whisper.cpp can use CoreML for ~3x faster inference via the Apple Neural Engine. This requires a separate `.mlmodelc` encoder file alongside the GGML model.
+On Apple Silicon, whisper.cpp uses CoreML for ~3-8x faster inference via the Apple Neural Engine. The required `.mlmodelc` encoder files are now **automatically downloaded** from Hugging Face alongside the GGML models.
 
-**Current manual process:**
-```bash
-# Clone whisper.cpp
-git clone --depth 1 https://github.com/ggml-org/whisper.cpp.git /tmp/whisper-cpp-coreml
+**How it works:**
+1. When `ModelManager::ensure_model()` is called for a Whisper model
+2. It downloads the GGML model (`.bin`) if missing
+3. On macOS, it also downloads the pre-compiled CoreML encoder (`.mlmodelc.zip`)
+4. Extracts the zip and removes it to save space
 
-# Generate CoreML encoder (requires Python 3.11, ~5-15 min)
-nix-shell -p python311 --run "
-  cd /tmp/whisper-cpp-coreml
-  python3 -m venv .venv && source .venv/bin/activate
-  pip install 'numpy<2' torch==2.1.0 coremltools openai-whisper ane_transformers
-  cd models && ./generate-coreml-model.sh large-v3-turbo
-  cp -r ggml-large-v3-turbo-encoder.mlmodelc ~/.local/share/voice-controllm/models/
-"
-```
+**First run:** The first transcription after downloading is slow (~30s) while macOS compiles the model for the specific hardware. This is cached by the system - subsequent runs are fast.
 
-**Requirements:**
-- Python 3.11 (newer versions have compatibility issues with coremltools)
-- Xcode command-line tools: `xcode-select --install`
-- macOS Sonoma (14)+ recommended
-- ~5GB disk space during generation
+**Model sizes (approximate):**
+| Model | GGML | CoreML Encoder |
+|-------|------|----------------|
+| tiny | 75MB | 50MB |
+| base | 150MB | 90MB |
+| small | 500MB | 250MB |
+| medium | 1.5GB | 600MB |
+| large-v3 | 3GB | 1.2GB |
+| large-v3-turbo | 1.5GB | 1.1GB |
 
-**First run:** The first transcription after installing the CoreML model is slow (~30s) while macOS compiles the model for the specific device. Subsequent runs are fast.
-
-**Future automation:**
-- Option 1: Host pre-compiled `.mlmodelc` files (model-specific, ~500MB each)
-- Option 2: Add `vcm setup-coreml` command that runs this process
-- Option 3: Detect missing CoreML encoder and prompt user to generate
-
-**Note:** Only non-quantized models can be converted to CoreML. The quantized variants (e.g., `large-v3-turbo-q5_0`) are not compatible.
+**Note:** Only non-quantized models have CoreML support. Quantized variants (e.g., `large-v3-turbo-q5_0`) fall back to CPU inference.
 
 ## Transcription
 

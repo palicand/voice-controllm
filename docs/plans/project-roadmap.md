@@ -19,8 +19,8 @@ Offline voice dictation utility for macOS accessibility.
                 ┌───────────┼───────────┐
                 ▼           ▼           ▼
            ┌────────┐  ┌────────┐  ┌────────┐
-           │ Audio  │  │  VAD   │  │Canary  │
-           │Capture │  │(Silero)│  │ (NeMo) │
+           │ Audio  │  │  VAD   │  │Whisper │
+           │Capture │  │(Silero)│  │(CoreML)│
            └────────┘  └────────┘  └────────┘
                                         │
                                         ▼
@@ -32,7 +32,7 @@ Offline voice dictation utility for macOS accessibility.
 
 ## Phases
 
-### Phase 1: Core Engine ✅ (In Progress)
+### Phase 1: Core Engine ✅ Complete
 
 Build the transcription pipeline.
 
@@ -40,11 +40,11 @@ Build the transcription pipeline.
 |-----------|--------|-------------|
 | Audio capture | ✅ Done | cpal-based mic capture with resampling |
 | VAD | ✅ Done | Silero ONNX model for speech detection |
-| Model manager | ⬜ Todo | Auto-download models on first run |
-| Transcriber trait | ⬜ Todo | Abstraction for speech-to-text backends |
-| Canary backend | ⬜ Todo | NVIDIA NeMo via ONNX Runtime |
-| Engine | ⬜ Todo | Coordinator: capture → VAD → transcribe |
-| Keystroke injection | ⬜ Todo | enigo-based text injection |
+| Model manager | ✅ Done | Auto-download GGML + CoreML models from HF |
+| Transcriber trait | ✅ Done | Abstraction for speech-to-text backends |
+| Whisper backend | ✅ Done | whisper-rs with CoreML acceleration |
+| Engine | ✅ Done | Coordinator: capture → VAD → transcribe |
+| Keystroke injection | ✅ Done | enigo-based text injection with allowlist |
 
 ### Phase 2: IPC & CLI
 
@@ -139,12 +139,13 @@ Location: `~/.local/share/voice-controllm/models/`
 | Model | Size | Purpose |
 |-------|------|---------|
 | silero_vad.onnx | ~2MB | Voice activity detection |
-| canary-1b.onnx | ~1GB | Speech-to-text (Canary) |
+| ggml-*.bin | 75MB-3GB | Whisper GGML model |
+| ggml-*-encoder.mlmodelc | 50MB-1.2GB | CoreML encoder (macOS) |
 
-Models auto-download on first run.
+Models auto-download on first run from Hugging Face.
 
 ## Current Focus
 
-**Phase 1 completion** - see `2025-02-02-transcription-plan.md` for detailed tasks.
+**Phase 2: IPC & CLI** - Adding daemon/CLI communication via gRPC.
 
-After Phase 1, we'll have a working transcription pipeline. Phase 2 adds the CLI/daemon split, Phase 3 adds the menu bar for accessibility.
+Phase 1 complete: working transcription pipeline with audio capture → VAD → Whisper → keystroke injection.

@@ -2,7 +2,7 @@
 
 Offline voice dictation utility with keyword detection for accessibility. Designed to replace Apple Voice Control with a more accurate, configurable solution.
 
-**Status**: Early Development (Phase 0)
+**Status**: Phase 1 (Core Engine) - Audio capture, VAD, transcription, keystroke injection working
 
 ## Features (Planned)
 
@@ -59,7 +59,7 @@ Configuration file: `~/.config/voice-controllm/config.toml`
 
 ```toml
 [model]
-name = "large-v3-turbo"
+model = "whisper-large-v3-turbo"  # or whisper-base, whisper-small, etc.
 languages = ["auto"]  # or ["en", "cs", "de"]
 
 [latency]
@@ -67,8 +67,9 @@ mode = "balanced"  # "fast" | "balanced" | "accurate"
 min_chunk_seconds = 1.0
 
 [injection]
-mode = "always"  # or "allowlist"
-# allowlist = ["kitty", "IntelliJ IDEA"]
+# Empty allowlist = inject to all apps (default)
+# With allowlist = only inject to matching apps (case-insensitive, partial match)
+allowlist = ["Terminal", "Code", "IntelliJ"]
 ```
 
 ## License

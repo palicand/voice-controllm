@@ -6,8 +6,10 @@ use anyhow::{Context, Result};
 use futures_util::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::{Path, PathBuf};
+use std::process::Stdio;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
+use tokio::process::Command;
 use tracing::{debug, info, warn};
 
 /// Identifier for downloadable models.
@@ -47,56 +49,107 @@ impl ModelId {
                 filename: "silero_vad.onnx",
                 url: "https://github.com/snakers4/silero-vad/raw/master/src/silero_vad/data/silero_vad.onnx".to_string(),
                 size_bytes: Some(2_327_524),
+                coreml_encoder: None,
             },
             ModelId::WhisperTiny => ModelInfo {
                 filename: "ggml-tiny.bin",
                 url: format!("{}/ggml-tiny.bin", WHISPER_BASE_URL),
                 size_bytes: Some(77_691_713),
+                coreml_encoder: Some(CoreMlModelInfo {
+                    zip_filename: "ggml-tiny-encoder.mlmodelc.zip",
+                    extracted_dirname: "ggml-tiny-encoder.mlmodelc",
+                    url: format!("{}/ggml-tiny-encoder.mlmodelc.zip", WHISPER_BASE_URL),
+                }),
             },
             ModelId::WhisperTinyEn => ModelInfo {
                 filename: "ggml-tiny.en.bin",
                 url: format!("{}/ggml-tiny.en.bin", WHISPER_BASE_URL),
                 size_bytes: Some(77_704_715),
+                coreml_encoder: Some(CoreMlModelInfo {
+                    zip_filename: "ggml-tiny.en-encoder.mlmodelc.zip",
+                    extracted_dirname: "ggml-tiny.en-encoder.mlmodelc",
+                    url: format!("{}/ggml-tiny.en-encoder.mlmodelc.zip", WHISPER_BASE_URL),
+                }),
             },
             ModelId::WhisperBase => ModelInfo {
                 filename: "ggml-base.bin",
                 url: format!("{}/ggml-base.bin", WHISPER_BASE_URL),
                 size_bytes: Some(147_951_465),
+                coreml_encoder: Some(CoreMlModelInfo {
+                    zip_filename: "ggml-base-encoder.mlmodelc.zip",
+                    extracted_dirname: "ggml-base-encoder.mlmodelc",
+                    url: format!("{}/ggml-base-encoder.mlmodelc.zip", WHISPER_BASE_URL),
+                }),
             },
             ModelId::WhisperBaseEn => ModelInfo {
                 filename: "ggml-base.en.bin",
                 url: format!("{}/ggml-base.en.bin", WHISPER_BASE_URL),
                 size_bytes: Some(147_964_211),
+                coreml_encoder: Some(CoreMlModelInfo {
+                    zip_filename: "ggml-base.en-encoder.mlmodelc.zip",
+                    extracted_dirname: "ggml-base.en-encoder.mlmodelc",
+                    url: format!("{}/ggml-base.en-encoder.mlmodelc.zip", WHISPER_BASE_URL),
+                }),
             },
             ModelId::WhisperSmall => ModelInfo {
                 filename: "ggml-small.bin",
                 url: format!("{}/ggml-small.bin", WHISPER_BASE_URL),
                 size_bytes: Some(487_601_967),
+                coreml_encoder: Some(CoreMlModelInfo {
+                    zip_filename: "ggml-small-encoder.mlmodelc.zip",
+                    extracted_dirname: "ggml-small-encoder.mlmodelc",
+                    url: format!("{}/ggml-small-encoder.mlmodelc.zip", WHISPER_BASE_URL),
+                }),
             },
             ModelId::WhisperSmallEn => ModelInfo {
                 filename: "ggml-small.en.bin",
                 url: format!("{}/ggml-small.en.bin", WHISPER_BASE_URL),
                 size_bytes: Some(487_614_201),
+                coreml_encoder: Some(CoreMlModelInfo {
+                    zip_filename: "ggml-small.en-encoder.mlmodelc.zip",
+                    extracted_dirname: "ggml-small.en-encoder.mlmodelc",
+                    url: format!("{}/ggml-small.en-encoder.mlmodelc.zip", WHISPER_BASE_URL),
+                }),
             },
             ModelId::WhisperMedium => ModelInfo {
                 filename: "ggml-medium.bin",
                 url: format!("{}/ggml-medium.bin", WHISPER_BASE_URL),
                 size_bytes: Some(1_533_774_781),
+                coreml_encoder: Some(CoreMlModelInfo {
+                    zip_filename: "ggml-medium-encoder.mlmodelc.zip",
+                    extracted_dirname: "ggml-medium-encoder.mlmodelc",
+                    url: format!("{}/ggml-medium-encoder.mlmodelc.zip", WHISPER_BASE_URL),
+                }),
             },
             ModelId::WhisperMediumEn => ModelInfo {
                 filename: "ggml-medium.en.bin",
                 url: format!("{}/ggml-medium.en.bin", WHISPER_BASE_URL),
                 size_bytes: Some(1_533_774_781),
+                coreml_encoder: Some(CoreMlModelInfo {
+                    zip_filename: "ggml-medium.en-encoder.mlmodelc.zip",
+                    extracted_dirname: "ggml-medium.en-encoder.mlmodelc",
+                    url: format!("{}/ggml-medium.en-encoder.mlmodelc.zip", WHISPER_BASE_URL),
+                }),
             },
             ModelId::WhisperLargeV3 => ModelInfo {
                 filename: "ggml-large-v3.bin",
                 url: format!("{}/ggml-large-v3.bin", WHISPER_BASE_URL),
                 size_bytes: Some(3_094_623_691),
+                coreml_encoder: Some(CoreMlModelInfo {
+                    zip_filename: "ggml-large-v3-encoder.mlmodelc.zip",
+                    extracted_dirname: "ggml-large-v3-encoder.mlmodelc",
+                    url: format!("{}/ggml-large-v3-encoder.mlmodelc.zip", WHISPER_BASE_URL),
+                }),
             },
             ModelId::WhisperLargeV3Turbo => ModelInfo {
                 filename: "ggml-large-v3-turbo.bin",
                 url: format!("{}/ggml-large-v3-turbo.bin", WHISPER_BASE_URL),
                 size_bytes: Some(1_624_555_275),
+                coreml_encoder: Some(CoreMlModelInfo {
+                    zip_filename: "ggml-large-v3-turbo-encoder.mlmodelc.zip",
+                    extracted_dirname: "ggml-large-v3-turbo-encoder.mlmodelc",
+                    url: format!("{}/ggml-large-v3-turbo-encoder.mlmodelc.zip", WHISPER_BASE_URL),
+                }),
             },
         }
     }
@@ -110,6 +163,18 @@ struct ModelInfo {
     url: String,
     /// Expected file size for validation (optional).
     size_bytes: Option<u64>,
+    /// CoreML encoder model info (for Whisper models with CoreML support).
+    coreml_encoder: Option<CoreMlModelInfo>,
+}
+
+/// Metadata for a CoreML model component.
+struct CoreMlModelInfo {
+    /// Zip filename to download.
+    zip_filename: &'static str,
+    /// Extracted directory name.
+    extracted_dirname: &'static str,
+    /// Download URL.
+    url: String,
 }
 
 /// Manages model downloads and storage.
@@ -149,7 +214,7 @@ impl ModelManager {
         let info = model.info();
         let model_path = self.models_dir.join(info.filename);
 
-        if model_path.exists() {
+        let needs_download = if model_path.exists() {
             // Validate size if known
             if let Some(expected_size) = info.size_bytes {
                 let metadata = fs::metadata(&model_path)
@@ -167,19 +232,93 @@ impl ModelManager {
                     fs::remove_file(&model_path)
                         .await
                         .context("Failed to remove corrupted model")?;
+                    true
                 } else {
                     debug!(path = %model_path.display(), "Model already exists");
-                    return Ok(model_path);
+                    false
                 }
             } else {
                 debug!(path = %model_path.display(), "Model already exists");
-                return Ok(model_path);
+                false
             }
+        } else {
+            true
+        };
+
+        if needs_download {
+            // Download the model
+            self.download_model(&info, &model_path).await?;
         }
 
-        // Download the model
-        self.download_model(&info, &model_path).await?;
+        // Ensure CoreML encoder is available (macOS only)
+        #[cfg(target_os = "macos")]
+        if let Some(ref coreml) = info.coreml_encoder {
+            self.ensure_coreml_encoder(coreml).await?;
+        }
+
         Ok(model_path)
+    }
+
+    /// Ensure a CoreML encoder model is downloaded and extracted.
+    #[cfg(target_os = "macos")]
+    async fn ensure_coreml_encoder(&self, coreml: &CoreMlModelInfo) -> Result<()> {
+        let extracted_path = self.models_dir.join(coreml.extracted_dirname);
+
+        if extracted_path.exists() {
+            debug!(path = %extracted_path.display(), "CoreML encoder already exists");
+            return Ok(());
+        }
+
+        let zip_path = self.models_dir.join(coreml.zip_filename);
+
+        // Download if zip doesn't exist
+        if !zip_path.exists() {
+            info!(
+                url = %coreml.url,
+                dest = %zip_path.display(),
+                "Downloading CoreML encoder model"
+            );
+
+            let zip_info = ZipModelInfo {
+                filename: coreml.zip_filename,
+                url: &coreml.url,
+            };
+            self.download_zip_model(&zip_info, &zip_path).await?;
+        }
+
+        // Extract the zip
+        info!(
+            zip = %zip_path.display(),
+            dest = %extracted_path.display(),
+            "Extracting CoreML encoder model"
+        );
+
+        let status = Command::new("unzip")
+            .args(["-q", "-o"])
+            .arg(&zip_path)
+            .arg("-d")
+            .arg(&self.models_dir)
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .status()
+            .await
+            .context("Failed to run unzip command")?;
+
+        if !status.success() {
+            anyhow::bail!(
+                "Failed to extract CoreML model: unzip exited with {}",
+                status
+            );
+        }
+
+        // Remove the zip file to save space
+        fs::remove_file(&zip_path)
+            .await
+            .context("Failed to remove CoreML zip file")?;
+
+        info!(path = %extracted_path.display(), "CoreML encoder model ready");
+
+        Ok(())
     }
 
     /// Download a model from its URL with progress bar and resume support.
@@ -259,7 +398,11 @@ impl ModelManager {
         }
 
         if !status.is_success() && status != reqwest::StatusCode::PARTIAL_CONTENT {
-            anyhow::bail!("Failed to download model: HTTP {} from {}", status, response.url());
+            anyhow::bail!(
+                "Failed to download model: HTTP {} from {}",
+                status,
+                response.url()
+            );
         }
 
         // Check if server supports range requests
@@ -339,6 +482,96 @@ impl ModelManager {
 
         Ok(())
     }
+
+    /// Download a zip model file with progress bar.
+    #[cfg(target_os = "macos")]
+    async fn download_zip_model(&self, info: &ZipModelInfo<'_>, dest: &Path) -> Result<()> {
+        // Ensure directory exists
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent)
+                .await
+                .context("Failed to create models directory")?;
+        }
+
+        let temp_path = dest.with_extension("tmp");
+
+        info!(
+            url = %info.url,
+            dest = %dest.display(),
+            "Downloading CoreML model"
+        );
+
+        let client = reqwest::Client::new();
+        let response = client
+            .get(info.url)
+            .send()
+            .await
+            .with_context(|| format!("Failed to download model from {}", info.url))?;
+
+        let status = response.status();
+        if !status.is_success() {
+            anyhow::bail!(
+                "Failed to download model: HTTP {} from {}",
+                status,
+                response.url()
+            );
+        }
+
+        // Get content length for progress bar
+        let total_size = response.content_length().unwrap_or(0);
+
+        // Set up progress bar
+        let pb = ProgressBar::new(total_size);
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("{msg}\n{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
+                .expect("Invalid progress template")
+                .progress_chars("#>-"),
+        );
+        pb.set_message(format!("Downloading {}", info.filename));
+
+        // Download to temp file
+        let mut file = fs::File::create(&temp_path)
+            .await
+            .context("Failed to create temporary model file")?;
+
+        let mut stream = response.bytes_stream();
+        let mut downloaded: u64 = 0;
+
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.context("Error reading download stream")?;
+            file.write_all(&chunk)
+                .await
+                .context("Failed to write chunk")?;
+            downloaded += chunk.len() as u64;
+            pb.set_position(downloaded);
+        }
+
+        file.sync_all().await.context("Failed to sync model file")?;
+        drop(file);
+
+        // Atomic rename
+        fs::rename(&temp_path, dest)
+            .await
+            .context("Failed to finalize model file")?;
+
+        pb.finish_with_message(format!("Downloaded {}", info.filename));
+
+        info!(
+            path = %dest.display(),
+            size = downloaded,
+            "CoreML model downloaded successfully"
+        );
+
+        Ok(())
+    }
+}
+
+/// Helper struct for zip model downloads.
+#[cfg(target_os = "macos")]
+struct ZipModelInfo<'a> {
+    filename: &'a str,
+    url: &'a str,
 }
 
 impl Default for ModelManager {
