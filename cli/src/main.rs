@@ -1,10 +1,12 @@
 mod client;
 
+use std::time::Duration;
+
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 use voice_controllm_daemon::config::{Config, SpeechModel};
-use voice_controllm_daemon::socket::{pid_path, socket_path};
+use voice_controllm_daemon::socket::socket_path;
 use voice_controllm_proto::{Empty, State, status::Status as StatusVariant};
 
 #[derive(Parser)]
@@ -85,15 +87,42 @@ async fn cmd_start() -> Result<()> {
     let sock_path = socket_path()?;
 
     if client::is_daemon_running(&sock_path).await {
-        let pid_file = pid_path()?;
-        let pid = std::fs::read_to_string(&pid_file).unwrap_or_else(|_| "unknown".to_string());
+        let pid_path = voice_controllm_daemon::socket::pid_path()?;
+        let pid = std::fs::read_to_string(&pid_path).unwrap_or_else(|_| "unknown".to_string());
         println!("Daemon already running (PID: {})", pid.trim());
         return Ok(());
     }
 
-    println!("Starting daemon... (spawning not yet implemented)");
-    // Task 7 will implement actual spawning
-    Ok(())
+    // Spawn daemon as detached process
+    let daemon_path = std::env::current_exe()?
+        .parent()
+        .context("No parent directory")?
+        .join("voice-controllm-daemon");
+
+    if !daemon_path.exists() {
+        anyhow::bail!("Daemon binary not found at: {}", daemon_path.display());
+    }
+
+    // Spawn detached
+    std::process::Command::new(&daemon_path)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .context("Failed to spawn daemon")?;
+
+    // Wait for socket to appear (up to 2 seconds)
+    for _ in 0..20 {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        if client::is_daemon_running(&sock_path).await {
+            let pid_path = voice_controllm_daemon::socket::pid_path()?;
+            let pid = std::fs::read_to_string(&pid_path).unwrap_or_else(|_| "unknown".to_string());
+            println!("Daemon started (PID: {})", pid.trim());
+            return Ok(());
+        }
+    }
+
+    anyhow::bail!("Daemon failed to start within 2 seconds");
 }
 
 async fn cmd_stop() -> Result<()> {
