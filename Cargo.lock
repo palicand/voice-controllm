@@ -2305,6 +2305,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -2709,9 +2710,12 @@ dependencies = [
  "serde",
  "tempfile",
  "tokio",
+ "tokio-stream",
  "toml",
+ "tonic",
  "tracing",
  "tracing-subscriber",
+ "voice-controllm-proto",
  "whisper-rs",
  "xdg",
 ]

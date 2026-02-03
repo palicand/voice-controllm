@@ -26,8 +26,11 @@ reqwest = { version = "0.13.1", default-features = false, features = ["stream", 
 rubato = "1.0.1"
 serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.49.0", features = ["rt", "fs", "io-util", "rt-multi-thread", "macros", "signal", "process"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
 toml = "0.8"
+tonic = "0.12"
 tracing = "0.1.44"
+voice-controllm-proto = { version = "0.1.0", path = "../proto" }
 whisper-rs = { version = "0.15.1", features = ["coreml"] }
 xdg = "3.0.0"
 
