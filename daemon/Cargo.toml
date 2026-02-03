@@ -15,6 +15,7 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.100"
+async-stream = "0.3"
 audioadapter-buffers = "2.0.0"
 cpal = "0.17.1"
 enigo = "0.6.1"
@@ -33,6 +34,7 @@ toml = "0.8"
 tonic = "0.12"
 tower = "0.5"
 tracing = "0.1.44"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 voice-controllm-proto = { version = "0.1.0", path = "../proto" }
 whisper-rs = { version = "0.15.1", features = ["coreml"] }
 xdg = "3.0.0"
