@@ -2668,10 +2668,14 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "hyper-util",
  "tokio",
+ "tonic",
+ "tower 0.5.3",
  "tracing",
  "tracing-subscriber",
  "voice-controllm-daemon",
+ "voice-controllm-proto",
 ]
 
 [[package]]
