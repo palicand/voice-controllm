@@ -71,3 +71,14 @@ On Apple Silicon, whisper.cpp uses CoreML for ~3-8x faster inference via the App
 **Solution:**
 - Monitor for GGML/whisper.cpp-style port
 - Add as alternative backend when available
+
+## Testing
+
+### Integration Tests Require Models at Hardcoded Path
+**Status:** Known issue
+
+Integration tests in `daemon/tests/vad_integration.rs` look for models at a relative `models/` path within the project directory instead of using the standard `~/.local/share/voice-controllm/models/` location.
+
+**Impact:** Tests fail in git worktrees or fresh clones until models are manually copied.
+
+**Fix:** Update integration tests to use `ModelManager` or the standard config paths instead of hardcoded relative paths.
