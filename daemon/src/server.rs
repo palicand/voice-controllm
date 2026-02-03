@@ -1,7 +1,7 @@
 //! gRPC server for daemon control.
 
 use std::pin::Pin;
-use tokio::sync::broadcast;
+use std::sync::Arc;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::{Stream, StreamExt};
 use tonic::{Request, Response, Status};
@@ -10,18 +10,17 @@ use voice_controllm_proto::{
     voice_controllm_server::{VoiceControllm, VoiceControllmServer},
 };
 
-/// Event sender for broadcasting to subscribers.
-pub type EventSender = broadcast::Sender<Event>;
+use crate::controller::{Controller, ControllerState};
 
 /// gRPC service implementation.
 pub struct VoiceControllmService {
-    event_tx: EventSender,
+    controller: Arc<Controller>,
 }
 
 impl VoiceControllmService {
-    /// Create a new service with the given event sender.
-    pub fn new(event_tx: EventSender) -> Self {
-        Self { event_tx }
+    /// Create a new service with the given controller.
+    pub fn new(controller: Arc<Controller>) -> Self {
+        Self { controller }
     }
 
     /// Create the tonic server.
@@ -33,17 +32,23 @@ impl VoiceControllmService {
 #[tonic::async_trait]
 impl VoiceControllm for VoiceControllmService {
     async fn start_listening(&self, _request: Request<Empty>) -> Result<Response<Empty>, Status> {
-        // Stub: will be wired to controller in Task 3
+        self.controller
+            .start_listening()
+            .await
+            .map_err(Status::failed_precondition)?;
         Ok(Response::new(Empty {}))
     }
 
     async fn stop_listening(&self, _request: Request<Empty>) -> Result<Response<Empty>, Status> {
-        // Stub: will be wired to controller in Task 3
+        self.controller
+            .stop_listening()
+            .await
+            .map_err(Status::failed_precondition)?;
         Ok(Response::new(Empty {}))
     }
 
     async fn shutdown(&self, _request: Request<Empty>) -> Result<Response<Empty>, Status> {
-        // Stub: will be wired to controller in Task 3
+        // Will be implemented in Task 8
         Ok(Response::new(Empty {}))
     }
 
@@ -51,10 +56,15 @@ impl VoiceControllm for VoiceControllmService {
         &self,
         _request: Request<Empty>,
     ) -> Result<Response<voice_controllm_proto::Status>, Status> {
-        // Stub: return paused state
+        let state = self.controller.state().await;
+        let proto_state = match state {
+            ControllerState::Stopped => State::Stopped,
+            ControllerState::Listening => State::Listening,
+            ControllerState::Paused => State::Paused,
+        };
         let status = voice_controllm_proto::Status {
             status: Some(voice_controllm_proto::status::Status::Healthy(Healthy {
-                state: State::Paused.into(),
+                state: proto_state.into(),
             })),
         };
         Ok(Response::new(status))
@@ -66,7 +76,7 @@ impl VoiceControllm for VoiceControllmService {
         &self,
         _request: Request<Empty>,
     ) -> Result<Response<Self::SubscribeStream>, Status> {
-        let rx = self.event_tx.subscribe();
+        let rx = self.controller.event_sender().subscribe();
         let stream = BroadcastStream::new(rx)
             .map(|result| result.map_err(|e| Status::internal(format!("Broadcast error: {}", e))));
         Ok(Response::new(Box::pin(stream)))
@@ -76,10 +86,12 @@ impl VoiceControllm for VoiceControllmService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::sync::broadcast;
 
     #[test]
     fn test_service_creation() {
         let (tx, _rx) = broadcast::channel(16);
-        let _service = VoiceControllmService::new(tx);
+        let controller = Arc::new(Controller::new(tx));
+        let _service = VoiceControllmService::new(controller);
     }
 }
