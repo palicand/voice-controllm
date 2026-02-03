@@ -46,21 +46,21 @@ Build the transcription pipeline.
 | Engine | ✅ Done | Coordinator: capture → VAD → transcribe |
 | Keystroke injection | ✅ Done | enigo-based text injection with allowlist |
 
-### Phase 2: IPC & CLI
+### Phase 2: IPC & CLI ✅ Complete
 
 Daemon/CLI communication and process management.
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| gRPC definitions | ⬜ Todo | proto/ with service definitions |
-| Daemon server | ⬜ Todo | tonic gRPC server in daemon |
-| CLI client | ⬜ Todo | CLI connects to daemon via gRPC |
-| `vcm start` | ⬜ Todo | Spawn daemon as background process |
-| `vcm stop` | ⬜ Todo | Send shutdown signal to daemon |
-| `vcm status` | ⬜ Todo | Query daemon state |
-| `vcm toggle` | ⬜ Todo | Quick on/off for listening |
-| `vcm test-mic` | ⬜ Todo | Test microphone input |
-| `vcm transcribe <file>` | ⬜ Todo | Transcribe audio file (debug) |
+| gRPC definitions | ✅ Done | proto/ with service definitions |
+| Daemon server | ✅ Done | tonic gRPC server on Unix socket |
+| CLI client | ✅ Done | CLI connects to daemon via gRPC |
+| `vcm start` | ✅ Done | Spawn daemon as background process |
+| `vcm stop` | ✅ Done | Send shutdown signal to daemon |
+| `vcm status` | ✅ Done | Query daemon state |
+| `vcm toggle` | ✅ Done | Quick on/off for listening |
+| `vcm test-mic` | ⬜ Deferred | Test microphone input (Phase 4) |
+| `vcm transcribe <file>` | ⬜ Deferred | Transcribe audio file (Phase 4) |
 
 ### Phase 3: Menu Bar App
 
@@ -146,6 +146,6 @@ Models auto-download on first run from Hugging Face.
 
 ## Current Focus
 
-**Phase 2: IPC & CLI** - Adding daemon/CLI communication via gRPC.
+**Phase 3: Menu Bar App** - Building Tauri system tray application.
 
-Phase 1 complete: working transcription pipeline with audio capture → VAD → Whisper → keystroke injection.
+Phase 2 complete: gRPC IPC between daemon and CLI with process management.
