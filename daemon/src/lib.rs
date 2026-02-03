@@ -5,5 +5,6 @@ pub mod engine;
 pub mod inject;
 pub mod models;
 pub mod server;
+pub mod socket;
 pub mod transcribe;
 pub mod vad;
