@@ -104,10 +104,10 @@ impl Transcriber for WhisperTranscriber {
         let mut result = String::new();
 
         for i in 0..num_segments {
-            if let Some(segment) = self.state.get_segment(i) {
-                if let Ok(text) = segment.to_str_lossy() {
-                    result.push_str(&text);
-                }
+            if let Some(segment) = self.state.get_segment(i)
+                && let Ok(text) = segment.to_str_lossy()
+            {
+                result.push_str(&text);
             }
         }
 
@@ -119,8 +119,6 @@ impl Transcriber for WhisperTranscriber {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_language_getter() {
         // We can't test new() without a model, but we can test the struct directly

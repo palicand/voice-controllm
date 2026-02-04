@@ -8,6 +8,10 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # Workaround for whisper.cpp i8mm intrinsics issue on Apple Silicon CI runners
+  # armv8.2-a includes crypto/NEON but not i8mm (added in armv8.6-a)
+  CMAKE_C_FLAGS: "-march=armv8.2-a+crypto+simd"
+  CMAKE_CXX_FLAGS: "-march=armv8.2-a+crypto+simd"
 
 jobs:
   build:
