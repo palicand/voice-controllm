@@ -22,7 +22,7 @@ futures-util = "0.3.31"
 indicatif = "0.18.3"
 ndarray = "0.17.2"
 ort = "2.0.0-rc.11"
-reqwest = { version = "0.13.1", features = ["stream"] }
+reqwest = { version = "0.13.1", default-features = false, features = ["stream", "native-tls"] }
 rubato = "1.0.1"
 serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.49.0", features = ["rt", "fs", "io-util", "rt-multi-thread", "macros", "signal", "process"] }

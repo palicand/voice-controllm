@@ -452,19 +452,19 @@ impl ModelManager {
         drop(file);
 
         // Validate size if known
-        if let Some(expected) = info.size_bytes {
-            if downloaded != expected {
-                // Keep partial download for potential resume
-                pb.abandon_with_message(format!(
-                    "Download incomplete: got {} of {} bytes (will resume on next attempt)",
-                    downloaded, expected
-                ));
-                anyhow::bail!(
-                    "Downloaded model size mismatch: expected {}, got {} (partial download saved for resume)",
-                    expected,
-                    downloaded
-                );
-            }
+        if let Some(expected) = info.size_bytes
+            && downloaded != expected
+        {
+            // Keep partial download for potential resume
+            pb.abandon_with_message(format!(
+                "Download incomplete: got {} of {} bytes (will resume on next attempt)",
+                downloaded, expected
+            ));
+            anyhow::bail!(
+                "Downloaded model size mismatch: expected {}, got {} (partial download saved for resume)",
+                expected,
+                downloaded
+            );
         }
 
         // Atomic rename
@@ -602,7 +602,7 @@ mod tests {
     #[test]
     fn test_model_path_construction() {
         let temp = TempDir::new().unwrap();
-        let manager = ModelManager::with_dir(temp.path());
+        let _manager = ModelManager::with_dir(temp.path());
 
         // Model doesn't exist yet, so ensure_model would try to download
         // We just test the path would be correct
