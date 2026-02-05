@@ -10,8 +10,8 @@ use tower::service_fn;
 use voice_controllm_proto::voice_controllm_client::VoiceControllmClient;
 
 /// Connect to daemon via Unix socket.
-pub async fn connect(socket_path: &Path) -> Result<VoiceControllmClient<Channel>> {
-    let socket_path = socket_path.to_path_buf();
+pub async fn connect(socket_path: impl AsRef<Path>) -> Result<VoiceControllmClient<Channel>> {
+    let socket_path = socket_path.as_ref().to_path_buf();
 
     // Create channel with Unix socket connector
     let channel = Endpoint::try_from("http://[::]:50051")?
@@ -29,7 +29,8 @@ pub async fn connect(socket_path: &Path) -> Result<VoiceControllmClient<Channel>
 }
 
 /// Check if daemon is running by attempting to connect.
-pub async fn is_daemon_running(socket_path: &Path) -> bool {
+pub async fn is_daemon_running(socket_path: impl AsRef<Path>) -> bool {
+    let socket_path = socket_path.as_ref();
     if !socket_path.exists() {
         return false;
     }

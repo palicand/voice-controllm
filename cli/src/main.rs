@@ -103,6 +103,8 @@ async fn cmd_start() -> Result<()> {
         anyhow::bail!("Daemon binary not found at: {}", daemon_path.display());
     }
 
+    println!("Starting daemon...");
+
     // Spawn detached
     std::process::Command::new(&daemon_path)
         .stdin(std::process::Stdio::null())
@@ -111,8 +113,9 @@ async fn cmd_start() -> Result<()> {
         .spawn()
         .context("Failed to spawn daemon")?;
 
-    // Wait for socket to appear (up to 2 seconds)
-    for _ in 0..20 {
+    // Wait for socket to appear (up to 30 seconds for model download on first run)
+    let mut notified = false;
+    for i in 0..300 {
         tokio::time::sleep(Duration::from_millis(100)).await;
         if client::is_daemon_running(&sock_path).await {
             let pid_path = voice_controllm_daemon::socket::pid_path()?;
@@ -120,9 +123,15 @@ async fn cmd_start() -> Result<()> {
             println!("Daemon started (PID: {})", pid.trim());
             return Ok(());
         }
+        if i == 20 && !notified {
+            println!(
+                "Waiting for daemon to initialize (models may need to be downloaded on first run)..."
+            );
+            notified = true;
+        }
     }
 
-    anyhow::bail!("Daemon failed to start within 2 seconds");
+    anyhow::bail!("Daemon failed to start within 30 seconds");
 }
 
 async fn cmd_stop() -> Result<()> {
