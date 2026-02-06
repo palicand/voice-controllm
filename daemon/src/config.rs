@@ -4,9 +4,7 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-
-const APP_NAME: &str = "voice-controllm";
+use std::path::{Path, PathBuf};
 
 /// Main configuration struct for the daemon.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -96,9 +94,7 @@ impl Config {
     /// Returns the default config directory path.
     /// `~/.config/voice-controllm/` (or `$XDG_CONFIG_HOME/voice-controllm/`)
     pub fn config_dir() -> Result<PathBuf> {
-        let xdg = xdg::BaseDirectories::with_prefix(APP_NAME);
-        xdg.get_config_home()
-            .context("Could not determine config directory (HOME not set?)")
+        crate::dirs::config_dir()
     }
 
     /// Returns the default config file path.
@@ -110,9 +106,7 @@ impl Config {
     /// Returns the default data directory path.
     /// `~/.local/share/voice-controllm/` (or `$XDG_DATA_HOME/voice-controllm/`)
     pub fn data_dir() -> Result<PathBuf> {
-        let xdg = xdg::BaseDirectories::with_prefix(APP_NAME);
-        xdg.get_data_home()
-            .context("Could not determine data directory (HOME not set?)")
+        crate::dirs::data_dir()
     }
 
     /// Returns the default models directory path.
@@ -130,7 +124,8 @@ impl Config {
 
     /// Load configuration from a specific path.
     /// Returns defaults if the file doesn't exist.
-    pub fn load_from(path: &PathBuf) -> Result<Self> {
+    pub fn load_from(path: impl AsRef<Path>) -> Result<Self> {
+        let path = path.as_ref();
         if !path.exists() {
             return Ok(Self::default());
         }
@@ -153,7 +148,8 @@ impl Config {
     }
 
     /// Save configuration to a specific path.
-    pub fn save_to(&self, path: &PathBuf) -> Result<()> {
+    pub fn save_to(&self, path: impl AsRef<Path>) -> Result<()> {
+        let path = path.as_ref();
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).with_context(|| {
                 format!("Failed to create config directory: {}", parent.display())

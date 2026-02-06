@@ -1,7 +1,12 @@
 pub mod audio;
 pub mod config;
+pub mod controller;
+pub mod daemon;
+pub mod dirs;
 pub mod engine;
 pub mod inject;
 pub mod models;
+pub mod server;
+pub mod socket;
 pub mod transcribe;
 pub mod vad;
