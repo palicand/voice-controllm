@@ -51,8 +51,10 @@ jobs:
           mkdir -p models
           curl -L -o models/silero_vad.onnx \
             https://github.com/snakers4/silero-vad/raw/master/src/silero_vad/data/silero_vad.onnx
-      - name: Test
-        run: cargo test
+      - name: Unit tests
+        run: cargo test --lib
+      - name: Integration tests
+        run: cargo test --test '*'
 
   fmt:
     runs-on: macos-latest

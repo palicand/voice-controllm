@@ -1,5 +1,6 @@
 //! Daemon runner that orchestrates all components.
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
@@ -9,13 +10,33 @@ use tracing::info;
 
 use crate::controller::Controller;
 use crate::server::VoiceControllmService;
-use crate::socket::{cleanup_socket, create_listener, pid_path, socket_path};
+use crate::socket::{cleanup_socket, create_listener};
 
-/// Run the daemon.
+/// Paths used by the daemon at runtime.
+pub struct DaemonPaths {
+    pub socket: PathBuf,
+    pub pid: PathBuf,
+}
+
+impl DaemonPaths {
+    /// Create paths using XDG state directory defaults.
+    pub fn from_xdg() -> Result<Self> {
+        Ok(Self {
+            socket: crate::socket::socket_path()?,
+            pid: crate::socket::pid_path()?,
+        })
+    }
+}
+
+/// Run the daemon with default XDG paths.
 pub async fn run() -> Result<()> {
-    // Get paths
-    let sock_path = socket_path()?;
-    let pid_file = pid_path()?;
+    run_with_paths(DaemonPaths::from_xdg()?).await
+}
+
+/// Run the daemon with custom paths.
+pub async fn run_with_paths(paths: DaemonPaths) -> Result<()> {
+    let sock_path = paths.socket;
+    let pid_file = paths.pid;
 
     // Write PID file
     let pid = std::process::id();
