@@ -64,8 +64,7 @@ async fn test_daemon_grpc_lifecycle() {
     let config = Config::default();
 
     // Spawn daemon as background task
-    let daemon_handle =
-        tokio::spawn(async move { run_with_paths_and_config(paths, config).await });
+    let daemon_handle = tokio::spawn(async move { run_with_paths_and_config(paths, config).await });
 
     // Connect (with retry for startup race)
     let mut client = connect_with_retry(&sock_path, Duration::from_secs(5)).await;

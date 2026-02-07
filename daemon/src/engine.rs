@@ -74,10 +74,7 @@ impl Engine {
     ///
     /// Calls `on_progress` with status updates suitable for UI display.
     /// After this returns Ok(()), the engine is ready for `run_loop()`.
-    pub async fn initialize(
-        &mut self,
-        on_progress: impl Fn(InitEvent) + Send,
-    ) -> Result<()> {
+    pub async fn initialize(&mut self, on_progress: impl Fn(InitEvent) + Send) -> Result<()> {
         info!("Initializing engine");
 
         // Ensure VAD model
@@ -140,7 +137,6 @@ impl Engine {
 
         info!("Starting audio capture");
 
-        // Initialize audio capture
         let capture = AudioCapture::start().context("Failed to start audio capture")?;
         let sample_rate = capture.sample_rate();
         info!(
@@ -149,17 +145,16 @@ impl Engine {
             "Audio capture started"
         );
 
-        // Initialize resampler
         let mut resampler = AudioResampler::new(sample_rate, TARGET_SAMPLE_RATE, 1024)
             .context("Failed to create resampler")?;
 
-        // Buffers
-        let mut input_buffer: Vec<f32> = Vec::new();
-        let mut vad_buffer: Vec<f32> = Vec::new();
-        let mut speech_buffer: Vec<f32> = Vec::new();
-
-        let resampler_chunk = resampler.chunk_size();
-        let vad_chunk_size = components.vad.chunk_size();
+        let mut audio = AudioBuffers {
+            input: Vec::new(),
+            vad: Vec::new(),
+            speech: Vec::new(),
+            resampler_chunk: resampler.chunk_size(),
+            vad_chunk: components.vad.chunk_size(),
+        };
 
         info!("Listening for speech...");
 
@@ -171,62 +166,9 @@ impl Engine {
                 }
                 _ = tokio::time::sleep(std::time::Duration::from_millis(10)) => {
                     if let Some(samples) = capture.try_recv() {
-                        input_buffer.extend(samples);
-
-                        // Process complete resampler chunks
-                        while input_buffer.len() >= resampler_chunk {
-                            let chunk: Vec<f32> = input_buffer.drain(..resampler_chunk).collect();
-                            if let Ok(resampled) = resampler.process(&chunk) {
-                                vad_buffer.extend(resampled);
-                            }
-                        }
-
-                        // Process complete VAD chunks
-                        while vad_buffer.len() >= vad_chunk_size {
-                            let chunk: Vec<f32> = vad_buffer.drain(..vad_chunk_size).collect();
-
-                            if components.vad.is_speaking() {
-                                speech_buffer.extend(&chunk);
-                            }
-
-                            match components.vad.process(&chunk) {
-                                Ok(Some(VadEvent::SpeechStart)) => {
-                                    debug!("Speech started");
-                                    speech_buffer.clear();
-                                    speech_buffer.extend(&chunk);
-                                }
-                                Ok(Some(VadEvent::SpeechEnd)) => {
-                                    debug!(
-                                        samples = speech_buffer.len(),
-                                        duration_secs =
-                                            speech_buffer.len() as f32 / VAD_SAMPLE_RATE as f32,
-                                        "Speech ended, transcribing"
-                                    );
-
-                                    if !speech_buffer.is_empty() {
-                                        match components
-                                            .transcriber
-                                            .transcribe(&speech_buffer, VAD_SAMPLE_RATE)
-                                        {
-                                            Ok(text) => {
-                                                if !text.is_empty() {
-                                                    info!(text = %text, "Transcription complete");
-                                                    on_transcription(&text);
-                                                }
-                                            }
-                                            Err(e) => {
-                                                error!(error = %e, "Transcription failed");
-                                            }
-                                        }
-                                    }
-                                    speech_buffer.clear();
-                                }
-                                Ok(None) => {}
-                                Err(e) => {
-                                    warn!(error = %e, "VAD processing error");
-                                }
-                            }
-                        }
+                        audio.input.extend(samples);
+                        resample_input(&mut audio, &mut resampler);
+                        process_vad_chunks(components, &mut audio, &mut on_transcription);
                     }
                 }
             }
@@ -262,6 +204,86 @@ impl Engine {
 
         self.run_loop(cancel, on_transcription).await
     }
+}
+
+/// Buffers used during the audio processing loop.
+struct AudioBuffers {
+    input: Vec<f32>,
+    vad: Vec<f32>,
+    speech: Vec<f32>,
+    resampler_chunk: usize,
+    vad_chunk: usize,
+}
+
+/// Drain complete chunks from the input buffer and resample into the VAD buffer.
+fn resample_input(audio: &mut AudioBuffers, resampler: &mut AudioResampler) {
+    while audio.input.len() >= audio.resampler_chunk {
+        let chunk: Vec<f32> = audio.input.drain(..audio.resampler_chunk).collect();
+        if let Ok(resampled) = resampler.process(&chunk) {
+            audio.vad.extend(resampled);
+        }
+    }
+}
+
+/// Process complete VAD-sized chunks, detecting speech boundaries and transcribing.
+fn process_vad_chunks(
+    components: &mut InitializedComponents,
+    audio: &mut AudioBuffers,
+    on_transcription: &mut impl FnMut(&str),
+) {
+    while audio.vad.len() >= audio.vad_chunk {
+        let chunk: Vec<f32> = audio.vad.drain(..audio.vad_chunk).collect();
+
+        if components.vad.is_speaking() {
+            audio.speech.extend(&chunk);
+        }
+
+        match components.vad.process(&chunk) {
+            Ok(Some(VadEvent::SpeechStart)) => {
+                debug!("Speech started");
+                audio.speech.clear();
+                audio.speech.extend(&chunk);
+            }
+            Ok(Some(VadEvent::SpeechEnd)) => {
+                transcribe_speech(components, audio, on_transcription);
+            }
+            Ok(None) => {}
+            Err(e) => {
+                warn!(error = %e, "VAD processing error");
+            }
+        }
+    }
+}
+
+/// Transcribe accumulated speech and clear the buffer.
+fn transcribe_speech(
+    components: &mut InitializedComponents,
+    audio: &mut AudioBuffers,
+    on_transcription: &mut impl FnMut(&str),
+) {
+    debug!(
+        samples = audio.speech.len(),
+        duration_secs = audio.speech.len() as f32 / VAD_SAMPLE_RATE as f32,
+        "Speech ended, transcribing"
+    );
+
+    if !audio.speech.is_empty() {
+        match components
+            .transcriber
+            .transcribe(&audio.speech, VAD_SAMPLE_RATE)
+        {
+            Ok(text) => {
+                if !text.is_empty() {
+                    info!(text = %text, "Transcription complete");
+                    on_transcription(&text);
+                }
+            }
+            Err(e) => {
+                error!(error = %e, "Transcription failed");
+            }
+        }
+    }
+    audio.speech.clear();
 }
 
 /// Convert SpeechModel config to ModelId for download.

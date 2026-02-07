@@ -52,10 +52,7 @@ impl VoiceControllm for VoiceControllmService {
         Ok(Response::new(Empty {}))
     }
 
-    async fn download_models(
-        &self,
-        _request: Request<Empty>,
-    ) -> Result<Response<Empty>, Status> {
+    async fn download_models(&self, _request: Request<Empty>) -> Result<Response<Empty>, Status> {
         // Placeholder — full implementation in Task 7
         Ok(Response::new(Empty {}))
     }

@@ -40,6 +40,9 @@ voice-controllm-proto = { version = "0.1.0", path = "../proto" }
 whisper-rs = { version = "0.15.1", features = ["coreml"] }
 xdg = "3.0.0"
 
+[lints]
+workspace = true
+
 [dev-dependencies]
 ctrlc = "3.5.1"
 hound = "3.5.1"

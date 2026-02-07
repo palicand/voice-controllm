@@ -7,7 +7,9 @@ use anyhow::{Context, Result};
 use tokio::sync::{broadcast, oneshot};
 use tonic::transport::Server;
 use tracing::{error, info};
-use voice_controllm_proto::{DaemonError, ErrorKind, Event, InitProgress, ModelLoad, Ready};
+use voice_controllm_proto::{
+    DaemonError, ErrorKind, Event, InitProgress, ModelDownload, ModelLoad, Ready,
+};
 
 use crate::config::Config;
 use crate::controller::Controller;
@@ -116,6 +118,48 @@ pub async fn run_with_paths_and_config(paths: DaemonPaths, config: Config) -> Re
     result.context("Server error")
 }
 
+/// Convert an engine InitEvent to a proto Event.
+fn init_event_to_proto(event: InitEvent) -> Event {
+    let progress = match event {
+        InitEvent::Loading { model } => {
+            voice_controllm_proto::init_progress::Progress::ModelLoad(ModelLoad {
+                model_name: model,
+            })
+        }
+        InitEvent::Downloading {
+            model,
+            bytes,
+            total,
+        } => voice_controllm_proto::init_progress::Progress::ModelDownload(ModelDownload {
+            model_name: model,
+            bytes_downloaded: bytes,
+            bytes_total: total,
+        }),
+        InitEvent::Ready => voice_controllm_proto::init_progress::Progress::Ready(Ready {}),
+    };
+
+    Event {
+        event: Some(voice_controllm_proto::event::Event::InitProgress(
+            InitProgress {
+                progress: Some(progress),
+            },
+        )),
+    }
+}
+
+/// Broadcast an engine error as a DaemonError event.
+fn engine_error_event(err: &anyhow::Error) -> Event {
+    Event {
+        event: Some(voice_controllm_proto::event::Event::DaemonError(
+            DaemonError {
+                kind: ErrorKind::ErrorEngine.into(),
+                message: format!("{:#}", err),
+                model_name: String::new(),
+            },
+        )),
+    }
+}
+
 /// Initialize the engine in a background task.
 async fn initialize_engine(controller: Arc<Controller>, event_tx: broadcast::Sender<Event>) {
     let mut engine = match controller.take_engine().await {
@@ -129,71 +173,20 @@ async fn initialize_engine(controller: Arc<Controller>, event_tx: broadcast::Sen
     let tx = event_tx.clone();
     let result = engine
         .initialize(move |event| {
-            let proto_event = match event {
-                InitEvent::Loading { model } => Event {
-                    event: Some(voice_controllm_proto::event::Event::InitProgress(
-                        InitProgress {
-                            progress: Some(
-                                voice_controllm_proto::init_progress::Progress::ModelLoad(
-                                    ModelLoad { model_name: model },
-                                ),
-                            ),
-                        },
-                    )),
-                },
-                InitEvent::Downloading {
-                    model,
-                    bytes,
-                    total,
-                } => Event {
-                    event: Some(voice_controllm_proto::event::Event::InitProgress(
-                        InitProgress {
-                            progress: Some(
-                                voice_controllm_proto::init_progress::Progress::ModelDownload(
-                                    voice_controllm_proto::ModelDownload {
-                                        model_name: model,
-                                        bytes_downloaded: bytes,
-                                        bytes_total: total,
-                                    },
-                                ),
-                            ),
-                        },
-                    )),
-                },
-                InitEvent::Ready => Event {
-                    event: Some(voice_controllm_proto::event::Event::InitProgress(
-                        InitProgress {
-                            progress: Some(
-                                voice_controllm_proto::init_progress::Progress::Ready(Ready {}),
-                            ),
-                        },
-                    )),
-                },
-            };
-            let _ = tx.send(proto_event);
+            let _ = tx.send(init_event_to_proto(event));
         })
         .await;
 
+    controller.return_engine(engine).await;
+
     match result {
         Ok(()) => {
-            controller.return_engine(engine).await;
             controller.mark_ready().await;
             info!("Engine initialization complete");
         }
         Err(e) => {
             error!(error = %e, "Engine initialization failed");
-            controller.return_engine(engine).await;
-            // Broadcast error event
-            let error_event = Event {
-                event: Some(voice_controllm_proto::event::Event::DaemonError(
-                    DaemonError {
-                        kind: ErrorKind::ErrorEngine.into(),
-                        message: format!("{:#}", e),
-                        model_name: String::new(),
-                    },
-                )),
-            };
-            let _ = event_tx.send(error_event);
+            let _ = event_tx.send(engine_error_event(&e));
         }
     }
 }
