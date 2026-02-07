@@ -39,11 +39,40 @@ pub enum ModelId {
     WhisperLargeV3Turbo,
 }
 
+/// Result of checking a model's status on disk.
+#[derive(Debug)]
+pub enum ModelStatus {
+    /// Model file exists and passes validation.
+    Ready(PathBuf),
+    /// Model file does not exist.
+    Missing,
+    /// Model file exists but failed validation.
+    Corrupted { path: PathBuf, reason: String },
+}
+
+impl std::fmt::Display for ModelId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ModelId::SileroVad => write!(f, "silero-vad"),
+            ModelId::WhisperTiny => write!(f, "whisper-tiny"),
+            ModelId::WhisperTinyEn => write!(f, "whisper-tiny-en"),
+            ModelId::WhisperBase => write!(f, "whisper-base"),
+            ModelId::WhisperBaseEn => write!(f, "whisper-base-en"),
+            ModelId::WhisperSmall => write!(f, "whisper-small"),
+            ModelId::WhisperSmallEn => write!(f, "whisper-small-en"),
+            ModelId::WhisperMedium => write!(f, "whisper-medium"),
+            ModelId::WhisperMediumEn => write!(f, "whisper-medium-en"),
+            ModelId::WhisperLargeV3 => write!(f, "whisper-large-v3"),
+            ModelId::WhisperLargeV3Turbo => write!(f, "whisper-large-v3-turbo"),
+        }
+    }
+}
+
 const WHISPER_BASE_URL: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main";
 
 impl ModelId {
     /// Get model metadata.
-    fn info(&self) -> ModelInfo {
+    pub fn info(&self) -> ModelInfo {
         match self {
             ModelId::SileroVad => ModelInfo {
                 filename: "silero_vad.onnx",
@@ -156,13 +185,13 @@ impl ModelId {
 }
 
 /// Metadata for a downloadable model.
-struct ModelInfo {
+pub struct ModelInfo {
     /// Filename to save as.
-    filename: &'static str,
+    pub filename: &'static str,
     /// Download URL.
-    url: String,
+    pub url: String,
     /// Expected file size for validation (optional).
-    size_bytes: Option<u64>,
+    pub size_bytes: Option<u64>,
     /// CoreML encoder model info (for Whisper models with CoreML support).
     coreml_encoder: Option<CoreMlModelInfo>,
 }
@@ -201,6 +230,40 @@ impl ModelManager {
     /// Get the models directory path.
     pub fn models_dir(&self) -> &Path {
         &self.models_dir
+    }
+
+    /// Check model status without downloading.
+    pub async fn check_model(&self, model: ModelId) -> ModelStatus {
+        let info = model.info();
+        let model_path = self.models_dir.join(info.filename);
+
+        if !model_path.exists() {
+            return ModelStatus::Missing;
+        }
+
+        if let Some(expected_size) = info.size_bytes {
+            match fs::metadata(&model_path).await {
+                Ok(metadata) if metadata.len() != expected_size => {
+                    return ModelStatus::Corrupted {
+                        path: model_path,
+                        reason: format!(
+                            "expected {} bytes, found {}",
+                            expected_size,
+                            metadata.len()
+                        ),
+                    };
+                }
+                Err(e) => {
+                    return ModelStatus::Corrupted {
+                        path: model_path,
+                        reason: format!("cannot read file metadata: {}", e),
+                    };
+                }
+                Ok(_) => {}
+            }
+        }
+
+        ModelStatus::Ready(model_path)
     }
 
     /// Ensure a model is available, downloading if necessary.
