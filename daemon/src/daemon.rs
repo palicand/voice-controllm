@@ -6,11 +6,12 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use tokio::sync::{broadcast, oneshot};
 use tonic::transport::Server;
-use tracing::info;
+use tracing::{error, info};
+use voice_controllm_proto::{DaemonError, ErrorKind, Event, InitProgress, ModelLoad, Ready};
 
 use crate::config::Config;
 use crate::controller::Controller;
-use crate::engine::Engine;
+use crate::engine::{Engine, InitEvent};
 use crate::server::VoiceControllmService;
 use crate::socket::{cleanup_socket, create_listener};
 
@@ -35,13 +36,17 @@ pub async fn run() -> Result<()> {
     run_with_paths(DaemonPaths::from_xdg()?).await
 }
 
-/// Run the daemon with custom paths.
+/// Run the daemon with custom paths (loads config from XDG).
 pub async fn run_with_paths(paths: DaemonPaths) -> Result<()> {
+    let config = Config::load().context("Failed to load config")?;
+    run_with_paths_and_config(paths, config).await
+}
+
+/// Run the daemon with custom paths and config (for testing).
+pub async fn run_with_paths_and_config(paths: DaemonPaths, config: Config) -> Result<()> {
     let sock_path = paths.socket;
     let pid_file = paths.pid;
 
-    // Load config
-    let config = Config::load().context("Failed to load config")?;
     info!(model = ?config.model.model, "Loaded configuration");
 
     // Write PID file
@@ -64,14 +69,11 @@ pub async fn run_with_paths(paths: DaemonPaths) -> Result<()> {
 
     // Create controller (starts in Initializing state)
     let controller = Arc::new(Controller::new(
-        event_tx,
+        event_tx.clone(),
         shutdown_tx,
         engine,
         config.injection.clone(),
     ));
-
-    // Mark ready immediately (engine initialization in background comes in Task 6)
-    controller.mark_ready().await;
 
     // Create gRPC service
     let service = VoiceControllmService::new(controller.clone());
@@ -87,6 +89,13 @@ pub async fn run_with_paths(paths: DaemonPaths) -> Result<()> {
             }
         }
     };
+
+    // Spawn initialization task
+    let init_controller = controller.clone();
+    let init_event_tx = event_tx.clone();
+    tokio::spawn(async move {
+        initialize_engine(init_controller, init_event_tx).await;
+    });
 
     // Run server with graceful shutdown
     info!("Daemon started");
@@ -105,4 +114,86 @@ pub async fn run_with_paths(paths: DaemonPaths) -> Result<()> {
     info!("Daemon stopped");
 
     result.context("Server error")
+}
+
+/// Initialize the engine in a background task.
+async fn initialize_engine(controller: Arc<Controller>, event_tx: broadcast::Sender<Event>) {
+    let mut engine = match controller.take_engine().await {
+        Some(e) => e,
+        None => {
+            error!("No engine available for initialization");
+            return;
+        }
+    };
+
+    let tx = event_tx.clone();
+    let result = engine
+        .initialize(move |event| {
+            let proto_event = match event {
+                InitEvent::Loading { model } => Event {
+                    event: Some(voice_controllm_proto::event::Event::InitProgress(
+                        InitProgress {
+                            progress: Some(
+                                voice_controllm_proto::init_progress::Progress::ModelLoad(
+                                    ModelLoad { model_name: model },
+                                ),
+                            ),
+                        },
+                    )),
+                },
+                InitEvent::Downloading {
+                    model,
+                    bytes,
+                    total,
+                } => Event {
+                    event: Some(voice_controllm_proto::event::Event::InitProgress(
+                        InitProgress {
+                            progress: Some(
+                                voice_controllm_proto::init_progress::Progress::ModelDownload(
+                                    voice_controllm_proto::ModelDownload {
+                                        model_name: model,
+                                        bytes_downloaded: bytes,
+                                        bytes_total: total,
+                                    },
+                                ),
+                            ),
+                        },
+                    )),
+                },
+                InitEvent::Ready => Event {
+                    event: Some(voice_controllm_proto::event::Event::InitProgress(
+                        InitProgress {
+                            progress: Some(
+                                voice_controllm_proto::init_progress::Progress::Ready(Ready {}),
+                            ),
+                        },
+                    )),
+                },
+            };
+            let _ = tx.send(proto_event);
+        })
+        .await;
+
+    match result {
+        Ok(()) => {
+            controller.return_engine(engine).await;
+            controller.mark_ready().await;
+            info!("Engine initialization complete");
+        }
+        Err(e) => {
+            error!(error = %e, "Engine initialization failed");
+            controller.return_engine(engine).await;
+            // Broadcast error event
+            let error_event = Event {
+                event: Some(voice_controllm_proto::event::Event::DaemonError(
+                    DaemonError {
+                        kind: ErrorKind::ErrorEngine.into(),
+                        message: format!("{:#}", e),
+                        model_name: String::new(),
+                    },
+                )),
+            };
+            let _ = event_tx.send(error_event);
+        }
+    }
 }
