@@ -53,7 +53,19 @@ impl VoiceControllm for VoiceControllmService {
     }
 
     async fn download_models(&self, _request: Request<Empty>) -> Result<Response<Empty>, Status> {
-        // Placeholder — full implementation in Task 7
+        let controller = self.controller.clone();
+        tokio::spawn(async move {
+            if let Some(mut engine) = controller.take_engine().await {
+                let result = engine.initialize(|_| {}).await;
+                controller.return_engine(engine).await;
+                match result {
+                    Ok(()) => controller.mark_ready().await,
+                    Err(e) => {
+                        tracing::error!(error = %e, "Model re-download failed");
+                    }
+                }
+            }
+        });
         Ok(Response::new(Empty {}))
     }
 
