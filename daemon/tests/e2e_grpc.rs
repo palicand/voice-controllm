@@ -2,6 +2,9 @@
 //!
 //! Starts the daemon in-process with a temporary socket/PID directory,
 //! then exercises the full control flow through the gRPC client.
+//!
+//! Note: start_listening/stop_listening require initialized engine (real models),
+//! so we test the control plane without audio here.
 
 use std::time::Duration;
 
@@ -61,16 +64,19 @@ async fn test_daemon_grpc_lifecycle() {
     // Connect (with retry for startup race)
     let mut client = connect_with_retry(&sock_path, Duration::from_secs(5)).await;
 
-    // Initial status: Paused
+    // Initial status: Paused (mark_ready called during startup)
     let status = client.get_status(Empty {}).await.unwrap().into_inner();
     assert_eq!(extract_state(status), State::Paused);
 
-    // Start listening
-    client.start_listening(Empty {}).await.unwrap();
-    let status = client.get_status(Empty {}).await.unwrap().into_inner();
-    assert_eq!(extract_state(status), State::Listening);
+    // Start listening should fail — engine not initialized (no real models)
+    let result = client.start_listening(Empty {}).await;
+    assert!(result.is_err(), "start_listening should fail without initialized engine");
 
-    // Stop listening
+    // Status should still be Paused
+    let status = client.get_status(Empty {}).await.unwrap().into_inner();
+    assert_eq!(extract_state(status), State::Paused);
+
+    // Stop listening from Paused should be a no-op
     client.stop_listening(Empty {}).await.unwrap();
     let status = client.get_status(Empty {}).await.unwrap().into_inner();
     assert_eq!(extract_state(status), State::Paused);

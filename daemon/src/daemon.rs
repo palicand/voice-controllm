@@ -8,7 +8,9 @@ use tokio::sync::{broadcast, oneshot};
 use tonic::transport::Server;
 use tracing::info;
 
+use crate::config::Config;
 use crate::controller::Controller;
+use crate::engine::Engine;
 use crate::server::VoiceControllmService;
 use crate::socket::{cleanup_socket, create_listener};
 
@@ -38,6 +40,10 @@ pub async fn run_with_paths(paths: DaemonPaths) -> Result<()> {
     let sock_path = paths.socket;
     let pid_file = paths.pid;
 
+    // Load config
+    let config = Config::load().context("Failed to load config")?;
+    info!(model = ?config.model.model, "Loaded configuration");
+
     // Write PID file
     let pid = std::process::id();
     std::fs::write(&pid_file, pid.to_string()).context("Failed to write PID file")?;
@@ -50,11 +56,21 @@ pub async fn run_with_paths(paths: DaemonPaths) -> Result<()> {
     // Create shutdown channel
     let (shutdown_tx, shutdown_rx) = oneshot::channel();
 
-    // Create controller with event channel
+    // Create event channel
     let (event_tx, _) = broadcast::channel(256);
-    let controller = Arc::new(Controller::new(event_tx, shutdown_tx));
 
-    // Mark ready immediately (engine initialization will be added later)
+    // Create engine
+    let engine = Engine::new(config.clone()).context("Failed to create engine")?;
+
+    // Create controller (starts in Initializing state)
+    let controller = Arc::new(Controller::new(
+        event_tx,
+        shutdown_tx,
+        engine,
+        config.injection.clone(),
+    ));
+
+    // Mark ready immediately (engine initialization in background comes in Task 6)
     controller.mark_ready().await;
 
     // Create gRPC service
