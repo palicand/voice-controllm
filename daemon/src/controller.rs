@@ -7,6 +7,7 @@ use voice_controllm_proto::{Event, State, StateChange};
 /// Controller state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ControllerState {
+    Initializing,
     Stopped,
     Listening,
     Paused,
@@ -15,6 +16,7 @@ pub enum ControllerState {
 impl From<ControllerState> for State {
     fn from(state: ControllerState) -> Self {
         match state {
+            ControllerState::Initializing => State::Initializing,
             ControllerState::Stopped => State::Stopped,
             ControllerState::Listening => State::Listening,
             ControllerState::Paused => State::Paused,
@@ -36,7 +38,7 @@ impl Controller {
     /// Create a new controller with a shutdown channel.
     pub fn new(event_tx: EventSender, shutdown_tx: oneshot::Sender<()>) -> Self {
         Self {
-            state: Arc::new(RwLock::new(ControllerState::Paused)),
+            state: Arc::new(RwLock::new(ControllerState::Initializing)),
             event_tx,
             shutdown_tx: Arc::new(RwLock::new(Some(shutdown_tx))),
         }
@@ -45,6 +47,15 @@ impl Controller {
     /// Get the current state.
     pub async fn state(&self) -> ControllerState {
         *self.state.read().await
+    }
+
+    /// Mark initialization complete, transition to Paused.
+    pub async fn mark_ready(&self) {
+        let mut state = self.state.write().await;
+        if *state == ControllerState::Initializing {
+            *state = ControllerState::Paused;
+            self.broadcast_state_change(ControllerState::Paused);
+        }
     }
 
     /// Start listening.
@@ -58,6 +69,9 @@ impl Controller {
             }
             ControllerState::Listening => Ok(()),
             ControllerState::Stopped => Err("Daemon is stopped".to_string()),
+            ControllerState::Initializing => {
+                Err("Daemon is still initializing".to_string())
+            }
         }
     }
 
@@ -72,6 +86,9 @@ impl Controller {
             }
             ControllerState::Paused => Ok(()),
             ControllerState::Stopped => Err("Daemon is stopped".to_string()),
+            ControllerState::Initializing => {
+                Err("Daemon is still initializing".to_string())
+            }
         }
     }
 

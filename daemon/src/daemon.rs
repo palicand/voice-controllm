@@ -54,6 +54,9 @@ pub async fn run_with_paths(paths: DaemonPaths) -> Result<()> {
     let (event_tx, _) = broadcast::channel(256);
     let controller = Arc::new(Controller::new(event_tx, shutdown_tx));
 
+    // Mark ready immediately (engine initialization will be added later)
+    controller.mark_ready().await;
+
     // Create gRPC service
     let service = VoiceControllmService::new(controller.clone());
 

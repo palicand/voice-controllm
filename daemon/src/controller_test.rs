@@ -7,14 +7,30 @@ fn create_controller() -> (Controller, oneshot::Receiver<()>) {
 }
 
 #[tokio::test]
-async fn test_initial_state_is_paused() {
+async fn test_initial_state_is_initializing() {
     let (controller, _) = create_controller();
+    assert_eq!(controller.state().await, ControllerState::Initializing);
+}
+
+#[tokio::test]
+async fn test_mark_ready_transitions_to_paused() {
+    let (controller, _) = create_controller();
+    assert_eq!(controller.state().await, ControllerState::Initializing);
+    controller.mark_ready().await;
     assert_eq!(controller.state().await, ControllerState::Paused);
+}
+
+#[tokio::test]
+async fn test_start_listening_fails_during_initializing() {
+    let (controller, _) = create_controller();
+    let result = controller.start_listening().await;
+    assert!(result.is_err());
 }
 
 #[tokio::test]
 async fn test_start_listening_from_paused() {
     let (controller, _) = create_controller();
+    controller.mark_ready().await;
     controller.start_listening().await.unwrap();
     assert_eq!(controller.state().await, ControllerState::Listening);
 }
@@ -22,6 +38,7 @@ async fn test_start_listening_from_paused() {
 #[tokio::test]
 async fn test_stop_listening_from_listening() {
     let (controller, _) = create_controller();
+    controller.mark_ready().await;
     controller.start_listening().await.unwrap();
     controller.stop_listening().await.unwrap();
     assert_eq!(controller.state().await, ControllerState::Paused);
@@ -41,6 +58,10 @@ async fn test_start_listening_broadcasts_event() {
     let (event_tx, mut event_rx) = broadcast::channel(16);
     let (shutdown_tx, _) = oneshot::channel();
     let controller = Controller::new(event_tx, shutdown_tx);
+
+    controller.mark_ready().await;
+    // Drain the mark_ready state change event
+    let _ = event_rx.recv().await;
 
     controller.start_listening().await.unwrap();
 

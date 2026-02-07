@@ -181,6 +181,7 @@ async fn cmd_status() -> Result<()> {
                 State::Stopped => println!("Stopped"),
                 State::Listening => println!("Listening"),
                 State::Paused => println!("Paused"),
+                State::Initializing => println!("Initializing..."),
             }
         }
         Some(StatusVariant::Error(e)) => {
@@ -230,6 +231,9 @@ async fn cmd_toggle() -> Result<()> {
                 }
                 State::Stopped => {
                     println!("Daemon is stopped");
+                }
+                State::Initializing => {
+                    println!("Daemon is still initializing, please wait...");
                 }
             }
         }

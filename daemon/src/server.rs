@@ -52,12 +52,21 @@ impl VoiceControllm for VoiceControllmService {
         Ok(Response::new(Empty {}))
     }
 
+    async fn download_models(
+        &self,
+        _request: Request<Empty>,
+    ) -> Result<Response<Empty>, Status> {
+        // Placeholder — full implementation in Task 7
+        Ok(Response::new(Empty {}))
+    }
+
     async fn get_status(
         &self,
         _request: Request<Empty>,
     ) -> Result<Response<voice_controllm_proto::Status>, Status> {
         let state = self.controller.state().await;
         let proto_state = match state {
+            ControllerState::Initializing => State::Initializing,
             ControllerState::Stopped => State::Stopped,
             ControllerState::Listening => State::Listening,
             ControllerState::Paused => State::Paused,
