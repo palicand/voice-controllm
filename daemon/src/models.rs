@@ -72,6 +72,7 @@ const WHISPER_BASE_URL: &str = "https://huggingface.co/ggerganov/whisper.cpp/res
 
 impl ModelId {
     /// Get model metadata.
+    #[allow(clippy::too_many_lines)]
     pub fn info(&self) -> ModelInfo {
         match self {
             ModelId::SileroVad => ModelInfo {
