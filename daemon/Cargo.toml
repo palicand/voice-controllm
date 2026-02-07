@@ -30,6 +30,7 @@ rubato = "1.0.1"
 serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.49.0", features = ["rt", "fs", "io-util", "rt-multi-thread", "macros", "signal", "process"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
+tokio-util = { version = "0.7.18", features = ["rt"] }
 toml = "0.8"
 tonic = "0.12"
 tower = "0.5"
