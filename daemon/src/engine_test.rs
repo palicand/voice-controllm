@@ -1,10 +1,10 @@
 use super::*;
 
 #[test]
-fn test_engine_initial_state() {
+fn test_engine_not_initialized_by_default() {
     let config = Config::default();
     let engine = Engine::new(config).unwrap();
-    assert_eq!(engine.state(), EngineState::Stopped);
+    assert!(!engine.is_initialized());
 }
 
 #[test]
