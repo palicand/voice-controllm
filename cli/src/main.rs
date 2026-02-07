@@ -105,7 +105,6 @@ async fn cmd_start() -> Result<()> {
 
     println!("Starting daemon...");
 
-    // Spawn detached
     std::process::Command::new(&daemon_path)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
@@ -113,25 +112,129 @@ async fn cmd_start() -> Result<()> {
         .spawn()
         .context("Failed to spawn daemon")?;
 
-    // Wait for socket to appear (up to 30 seconds for model download on first run)
-    let mut notified = false;
-    for i in 0..300 {
+    // Wait for socket to appear (up to 5 seconds)
+    for _ in 0..50 {
         tokio::time::sleep(Duration::from_millis(100)).await;
         if client::is_daemon_running(&sock_path).await {
-            let pid_path = voice_controllm_daemon::socket::pid_path()?;
-            let pid = std::fs::read_to_string(&pid_path).unwrap_or_else(|_| "unknown".to_string());
-            println!("Daemon started (PID: {})", pid.trim());
-            return Ok(());
-        }
-        if i == 20 && !notified {
-            println!(
-                "Waiting for daemon to initialize (models may need to be downloaded on first run)..."
-            );
-            notified = true;
+            break;
         }
     }
 
-    anyhow::bail!("Daemon failed to start within 30 seconds");
+    if !client::is_daemon_running(&sock_path).await {
+        anyhow::bail!("Daemon failed to start");
+    }
+
+    // Subscribe to events and show initialization progress
+    let mut grpc_client = client::connect(&sock_path).await?;
+
+    // Check if already ready
+    let status = grpc_client
+        .get_status(Empty {})
+        .await
+        .context("Failed to get status")?
+        .into_inner();
+
+    if let Some(StatusVariant::Healthy(h)) = status.status {
+        let state = State::try_from(h.state).unwrap_or(State::Stopped);
+        if state != State::Initializing {
+            print_daemon_ready()?;
+            return Ok(());
+        }
+    }
+
+    // Stream events until Ready or error
+    let mut stream = client::subscribe(&mut grpc_client).await?;
+    show_init_progress(&mut stream, &mut grpc_client).await
+}
+
+fn print_daemon_ready() -> Result<()> {
+    let pid_path = voice_controllm_daemon::socket::pid_path()?;
+    let pid = std::fs::read_to_string(&pid_path).unwrap_or_else(|_| "unknown".to_string());
+    println!("Daemon ready (PID: {})", pid.trim());
+    Ok(())
+}
+
+async fn show_init_progress(
+    stream: &mut tonic::Streaming<voice_controllm_proto::Event>,
+    grpc_client: &mut voice_controllm_proto::voice_controllm_client::VoiceControllmClient<
+        tonic::transport::Channel,
+    >,
+) -> Result<()> {
+    use voice_controllm_proto::event::Event as EventType;
+    use voice_controllm_proto::init_progress::Progress;
+
+    while let Some(event) = stream.message().await? {
+        match event.event {
+            Some(EventType::InitProgress(progress)) => match progress.progress {
+                Some(Progress::ModelDownload(dl)) => {
+                    let mb_done = dl.bytes_downloaded as f64 / 1_000_000.0;
+                    let mb_total = dl.bytes_total as f64 / 1_000_000.0;
+                    if mb_total > 0.0 {
+                        print!(
+                            "\rDownloading {}... {:.0}/{:.0} MB",
+                            dl.model_name, mb_done, mb_total
+                        );
+                    } else {
+                        print!("\rDownloading {}... {:.0} MB", dl.model_name, mb_done);
+                    }
+                    use std::io::Write;
+                    std::io::stdout().flush().ok();
+                }
+                Some(Progress::ModelLoad(load)) => {
+                    println!("Loading {}...", load.model_name);
+                }
+                Some(Progress::Ready(_)) => {
+                    print_daemon_ready()?;
+                    return Ok(());
+                }
+                None => {}
+            },
+            Some(EventType::DaemonError(err)) => {
+                handle_daemon_error(err, grpc_client).await?;
+            }
+            Some(EventType::StateChange(_) | EventType::Transcription(_)) | None => {}
+        }
+    }
+
+    // Stream ended without Ready
+    let pid_path = voice_controllm_daemon::socket::pid_path()?;
+    let pid = std::fs::read_to_string(&pid_path).unwrap_or_else(|_| "unknown".to_string());
+    println!("Daemon started (PID: {})", pid.trim());
+    Ok(())
+}
+
+async fn handle_daemon_error(
+    err: voice_controllm_proto::DaemonError,
+    grpc_client: &mut voice_controllm_proto::voice_controllm_client::VoiceControllmClient<
+        tonic::transport::Channel,
+    >,
+) -> Result<()> {
+    let kind = voice_controllm_proto::ErrorKind::try_from(err.kind)
+        .unwrap_or(voice_controllm_proto::ErrorKind::ErrorUnknown);
+    match kind {
+        voice_controllm_proto::ErrorKind::ErrorModelMissing => {
+            println!("Model '{}' not found. Downloading...", err.model_name);
+            grpc_client
+                .download_models(Empty {})
+                .await
+                .context("Failed to trigger model download")?;
+        }
+        voice_controllm_proto::ErrorKind::ErrorModelCorrupted => {
+            println!(
+                "Model '{}' appears corrupted: {}. Re-downloading...",
+                err.model_name, err.message
+            );
+            grpc_client
+                .download_models(Empty {})
+                .await
+                .context("Failed to trigger model re-download")?;
+        }
+        _ => {
+            eprintln!("Daemon error: {}", err.message);
+            std::process::exit(1);
+        }
+    }
+    Ok(())
 }
 
 async fn cmd_stop() -> Result<()> {

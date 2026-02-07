@@ -7,6 +7,7 @@ use hyper_util::rt::TokioIo;
 use tokio::net::UnixStream;
 use tonic::transport::{Channel, Endpoint, Uri};
 use tower::service_fn;
+use voice_controllm_proto::Event;
 use voice_controllm_proto::voice_controllm_client::VoiceControllmClient;
 
 /// Connect to daemon via Unix socket.
@@ -26,6 +27,17 @@ pub async fn connect(socket_path: impl AsRef<Path>) -> Result<VoiceControllmClie
         .context("Failed to connect to daemon")?;
 
     Ok(VoiceControllmClient::new(channel))
+}
+
+/// Subscribe to daemon events.
+pub async fn subscribe(
+    client: &mut VoiceControllmClient<Channel>,
+) -> Result<tonic::Streaming<Event>> {
+    let response = client
+        .subscribe(voice_controllm_proto::Empty {})
+        .await
+        .context("Failed to subscribe to events")?;
+    Ok(response.into_inner())
 }
 
 /// Check if daemon is running by attempting to connect.
