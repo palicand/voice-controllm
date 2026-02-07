@@ -1,16 +1,17 @@
 # Voice-Controllm
 
-Offline voice dictation utility with keyword detection for accessibility. Designed to replace Apple Voice Control with a more accurate, configurable solution.
+Offline voice dictation utility for macOS accessibility. Designed to replace Apple Voice Control with a more accurate, configurable solution.
 
-**Status**: Phase 1 (Core Engine) - Audio capture, VAD, transcription, keystroke injection working
+**Status**: Usable - daemon captures audio, transcribes speech, and injects keystrokes. Controlled via CLI.
 
-## Features (Planned)
+## Features
 
-- **Offline dictation** - No cloud services, all processing local
+- **Offline dictation** - All processing local, no cloud services required
 - **Low latency** - 1-2 second transcription delay
-- **Keyword detection** - Trigger actions with voice commands
-- **Menu bar integration** - macOS system tray widget
-- **Multilingual** - Support for 99+ languages via Whisper
+- **Multilingual** - 99+ languages via Whisper
+- **Auto model management** - Models download automatically on first run
+- **App allowlisting** - Restrict keystroke injection to specific applications
+- **CoreML acceleration** - Native Apple Silicon performance via CoreML encoder
 
 ## Architecture
 
@@ -21,7 +22,7 @@ Offline voice dictation utility with keyword detection for accessibility. Design
                                                |  Audio (cpal)          |
 +-------------------+     Unix Socket/gRPC     |       |                |
 |  Menu Bar App     |<------------------------>|  VAD (Silero)          |
-|  (Tauri)          |                          |       |                |
+|  (Tauri, planned) |                          |       |                |
 +-------------------+                          |  Whisper (CoreML)      |
                                                |       |                |
                                                |  Keystroke Injection   |
@@ -32,7 +33,8 @@ Offline voice dictation utility with keyword detection for accessibility. Design
 
 - macOS (Apple Silicon recommended for CoreML acceleration)
 - Rust toolchain (1.85+)
-- Microphone permissions
+- Microphone permissions (grant in System Settings > Privacy & Security > Microphone)
+- Accessibility permissions for keystroke injection (grant in System Settings > Privacy & Security > Accessibility)
 
 ## Building
 
@@ -40,18 +42,26 @@ Offline voice dictation utility with keyword detection for accessibility. Design
 cargo build --release
 ```
 
-## Usage
+## Quick Start
 
 ```bash
-# Start dictation
+# Initialize config (optional - defaults work out of the box)
+vcm config init
+
+# Start the daemon (downloads models on first run)
 vcm start
 
-# Stop dictation
-vcm stop
+# Toggle listening on/off
+vcm toggle
 
-# Check status
+# Check current state
 vcm status
+
+# Stop the daemon
+vcm stop
 ```
+
+On first launch, `vcm start` downloads the required models (~150 MB for whisper-base) and shows progress. Subsequent starts are fast.
 
 ## Configuration
 
@@ -59,8 +69,8 @@ Configuration file: `~/.config/voice-controllm/config.toml`
 
 ```toml
 [model]
-model = "whisper-large-v3-turbo"  # or whisper-base, whisper-small, etc.
-languages = ["auto"]  # or ["en", "cs", "de"]
+model = "whisper-base"  # whisper-tiny, whisper-base, whisper-small, whisper-medium, whisper-large-v3, whisper-large-v3-turbo
+languages = ["auto"]    # or ["en"], ["en", "cs", "de"], etc.
 
 [latency]
 mode = "balanced"  # "fast" | "balanced" | "accurate"
@@ -69,8 +79,10 @@ min_chunk_seconds = 1.0
 [injection]
 # Empty allowlist = inject to all apps (default)
 # With allowlist = only inject to matching apps (case-insensitive, partial match)
-allowlist = ["Terminal", "Code", "IntelliJ"]
+allowlist = []
 ```
+
+Models are stored in `~/.local/share/voice-controllm/models/` and download automatically from Hugging Face.
 
 ## License
 
