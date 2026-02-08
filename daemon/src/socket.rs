@@ -14,6 +14,11 @@ pub fn pid_path() -> Result<PathBuf> {
     Ok(crate::dirs::state_dir()?.join("daemon.pid"))
 }
 
+/// Get the daemon log file path.
+pub fn log_path() -> Result<PathBuf> {
+    Ok(crate::dirs::state_dir()?.join("daemon.log"))
+}
+
 /// Create a Unix listener, removing stale socket if present.
 pub fn create_listener(path: impl AsRef<Path>) -> Result<UnixListener> {
     let path = path.as_ref();
