@@ -30,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
 
     let config = Config::load()?;
     println!("Model: {:?}", config.model.model);
-    println!("Languages: {:?}", config.model.languages);
+    println!("Language: {:?}", config.model.language);
     println!();
 
     let mut engine = Engine::new(config)?;

@@ -22,8 +22,9 @@ pub struct Config {
 pub struct ModelConfig {
     /// Speech recognition model to use.
     pub model: SpeechModel,
-    /// Languages to recognize. Use ["auto"] for automatic detection.
-    pub languages: Vec<String>,
+    /// Language for transcription. Use "auto" for automatic detection,
+    /// or a specific language (e.g. "en", "english", "sk", "slovak").
+    pub language: String,
 }
 
 /// Latency/accuracy trade-off configuration.
@@ -110,7 +111,7 @@ impl Default for ModelConfig {
     fn default() -> Self {
         Self {
             model: SpeechModel::default(),
-            languages: vec!["auto".to_string()],
+            language: "auto".to_string(),
         }
     }
 }

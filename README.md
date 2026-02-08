@@ -70,11 +70,14 @@ Configuration file: `~/.config/voice-controllm/config.toml`
 ```toml
 [model]
 model = "whisper-base"  # whisper-tiny, whisper-base, whisper-small, whisper-medium, whisper-large-v3, whisper-large-v3-turbo
-languages = ["auto"]    # or ["en"], ["en", "cs", "de"], etc.
+language = "auto"       # "auto" for detection, or a specific language: "en", "english", "sk", "slovak", etc.
 
 [latency]
 mode = "balanced"  # "fast" | "balanced" | "accurate"
 min_chunk_seconds = 1.0
+
+[logging]
+level = "info"  # error, warn, info, debug, trace (override with VCM_LOG env var)
 
 [injection]
 # Empty allowlist = inject to all apps (default)

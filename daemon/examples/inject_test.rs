@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
 
     let config = Config::load()?;
     println!("Model: {:?}", config.model.model);
-    println!("Languages: {:?}", config.model.languages);
+    println!("Language: {:?}", config.model.language);
     if config.injection.allowlist.is_empty() {
         println!("Allowlist: (disabled - injecting to all apps)");
     } else {

@@ -28,5 +28,8 @@ async fn main() -> anyhow::Result<()> {
         .with(filter)
         .init();
 
+    // Route whisper.cpp and GGML logs through tracing
+    whisper_rs::install_logging_hooks();
+
     voice_controllm_daemon::daemon::run().await
 }

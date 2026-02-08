@@ -105,10 +105,10 @@ impl Engine {
             .context("Failed to initialize VAD")?;
 
         // Initialize transcriber
-        let language = if self.config.model.languages.first().map(|s| s.as_str()) == Some("auto") {
+        let language = if self.config.model.language == "auto" {
             None
         } else {
-            self.config.model.languages.first().cloned()
+            Some(self.config.model.language.clone())
         };
         let transcriber = WhisperTranscriber::new(&whisper_model_path, language)
             .context("Failed to initialize Whisper")?;

@@ -430,7 +430,7 @@ async fn main() -> Result<()> {
                 println!("Created config file: {}", path.display());
                 println!();
                 println!("Model: {:?}", config.model.model);
-                println!("Languages: {:?}", config.model.languages);
+                println!("Language: {:?}", config.model.language);
             }
             ConfigAction::Show => {
                 let path = Config::config_path()?;
@@ -445,7 +445,7 @@ async fn main() -> Result<()> {
                 println!();
                 println!("[model]");
                 println!("model = {:?}", config.model.model);
-                println!("languages = {:?}", config.model.languages);
+                println!("language = {:?}", config.model.language);
                 println!();
                 println!("[latency]");
                 println!("mode = {:?}", config.latency.mode);

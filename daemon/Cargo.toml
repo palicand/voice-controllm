@@ -38,7 +38,7 @@ tracing = "0.1.44"
 tracing-appender = "0.2.4"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 voice-controllm-proto = { version = "0.1.0", path = "../proto" }
-whisper-rs = { version = "0.15.1", features = ["coreml"] }
+whisper-rs = { version = "0.15.1", features = ["coreml", "tracing_backend"] }
 xdg = "3.0.0"
 
 [lints]
