@@ -99,6 +99,8 @@ Production readiness.
 | Code signing | ⬜ Todo | Sign for Gatekeeper |
 | Accessibility permissions | ⬜ Todo | Guide user through granting permissions |
 | Error recovery | ⬜ Todo | Handle mic disconnect, model errors gracefully |
+| Model integrity hashes | ⬜ Todo | SHA256 verification for downloaded models (currently size-only check) |
+| Streaming transcription | ⬜ Todo | Real-time partial results for lower perceived latency |
 
 ## CLI Commands
 

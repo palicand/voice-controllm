@@ -87,6 +87,18 @@ allowlist = []
 
 Models are stored in `~/.local/share/voice-controllm/models/` and download automatically from Hugging Face.
 
+## Known Issues
+
+**Slow CoreML model loading on every start** — The CoreML encoder model recompiles for the device on each daemon launch instead of being cached by macOS. This is an [upstream whisper.cpp issue](https://github.com/ggml-org/whisper.cpp/issues/2126) that affects larger models (medium, large, large-v3-turbo). Smaller models (tiny, base) cache more reliably. macOS 15+ has improved caching. Clearing `~/Library/Application Support/coreMLCache/` and restarting may help.
+
+## Logging
+
+Daemon logs are written to `~/.local/state/voice-controllm/daemon.log`. Set the log level in config or override with `VCM_LOG`:
+
+```bash
+VCM_LOG=debug vcm start
+```
+
 ## License
 
 MIT
