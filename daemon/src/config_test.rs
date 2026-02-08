@@ -133,6 +133,9 @@ fn test_save_and_load_roundtrip() {
         injection: InjectionConfig {
             allowlist: vec!["IntelliJ IDEA".to_string()],
         },
+        logging: LoggingConfig {
+            level: LogLevel::Debug,
+        },
     };
 
     original.save_to(&config_path).unwrap();
