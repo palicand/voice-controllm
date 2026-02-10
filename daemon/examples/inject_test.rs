@@ -16,6 +16,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::signal;
+use tokio_util::sync::CancellationToken;
 use tracing::error;
 use tracing_subscriber::EnvFilter;
 use voice_controllm_daemon::config::Config;
@@ -59,6 +60,22 @@ async fn main() -> anyhow::Result<()> {
     println!("Speak into your microphone. Transcribed text will be injected as keystrokes.");
     println!();
 
+    engine.initialize(|_| {}).await?;
+
+    let cancel = CancellationToken::new();
+    let cancel_clone = cancel.clone();
+
+    // Bridge AtomicBool to CancellationToken
+    tokio::spawn(async move {
+        loop {
+            if !running.load(Ordering::SeqCst) {
+                cancel_clone.cancel();
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+    });
+
     // Race engine against Ctrl+C - when Ctrl+C fires, the engine future is dropped
     tokio::select! {
         biased;
@@ -68,7 +85,7 @@ async fn main() -> anyhow::Result<()> {
             r.store(false, Ordering::SeqCst);
         }
 
-        result = engine.run(running, |text| {
+        result = engine.run_loop(cancel, |text| {
             // Print the transcription for visibility
             println!(">>> {}", text);
 

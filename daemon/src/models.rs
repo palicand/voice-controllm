@@ -424,8 +424,9 @@ impl ModelManager {
             let _ = fs::remove_file(&temp_path).await;
         }
 
+        let downloaded_start = if is_resume { existing_size } else { 0 };
         let downloaded =
-            stream_to_file(response, &temp_path, info, is_resume, existing_size).await?;
+            stream_to_file(response, &temp_path, info, is_resume, downloaded_start).await?;
 
         validate_and_finalize(downloaded, info, &temp_path, dest).await
     }
