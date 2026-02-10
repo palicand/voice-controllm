@@ -6,6 +6,7 @@ service VoiceControllm {
   rpc StartListening(Empty) returns (Empty);
   rpc StopListening(Empty) returns (Empty);
   rpc Shutdown(Empty) returns (Empty);
+  rpc DownloadModels(Empty) returns (Empty);
 
   // Query
   rpc GetStatus(Empty) returns (Status);
@@ -31,6 +32,7 @@ enum State {
   STATE_STOPPED = 0;
   STATE_LISTENING = 1;
   STATE_PAUSED = 2;
+  STATE_INITIALIZING = 3;
 }
 
 message Error {
@@ -41,6 +43,8 @@ message Event {
   oneof event {
     StateChange state_change = 1;
     Transcription transcription = 2;
+    InitProgress init_progress = 3;
+    DaemonError daemon_error = 4;
   }
 }
 
@@ -54,4 +58,39 @@ message StateChange {
 message Transcription {
   string text = 1;
   double confidence = 2;
+  bool is_partial = 3;
+}
+
+message InitProgress {
+  oneof progress {
+    ModelDownload model_download = 1;
+    ModelLoad model_load = 2;
+    Ready ready = 3;
+  }
+}
+
+message ModelDownload {
+  string model_name = 1;
+  uint64 bytes_downloaded = 2;
+  uint64 bytes_total = 3;
+}
+
+message ModelLoad {
+  string model_name = 1;
+}
+
+message Ready {}
+
+message DaemonError {
+  ErrorKind kind = 1;
+  string message = 2;
+  string model_name = 3;
+}
+
+enum ErrorKind {
+  ERROR_UNKNOWN = 0;
+  ERROR_MODEL_MISSING = 1;
+  ERROR_MODEL_CORRUPTED = 2;
+  ERROR_MIC_ACCESS_DENIED = 3;
+  ERROR_ENGINE = 4;
 }

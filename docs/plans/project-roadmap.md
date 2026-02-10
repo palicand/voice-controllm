@@ -62,6 +62,19 @@ Daemon/CLI communication and process management.
 | `vcm test-mic` | ⬜ Deferred | Test microphone input (Phase 4) |
 | `vcm transcribe <file>` | ⬜ Deferred | Transcribe audio file (Phase 4) |
 
+### Phase 2.5: Controller-Engine Integration ✅ Complete
+
+Connect the daemon's control layer to the audio pipeline.
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| Engine refactor | ✅ Done | Split run() into initialize() + run_loop() |
+| Controller integration | ✅ Done | Controller spawns/cancels engine tasks |
+| Init progress events | ✅ Done | Proto events for model download/load/ready |
+| CLI progress display | ✅ Done | vcm start shows initialization progress |
+| Model integrity check | ✅ Done | Detect missing vs corrupted models |
+| DownloadModels RPC | ✅ Done | Re-download models on demand |
+
 ### Phase 3: Menu Bar App
 
 System tray application for easy control.
@@ -86,6 +99,8 @@ Production readiness.
 | Code signing | ⬜ Todo | Sign for Gatekeeper |
 | Accessibility permissions | ⬜ Todo | Guide user through granting permissions |
 | Error recovery | ⬜ Todo | Handle mic disconnect, model errors gracefully |
+| Model integrity hashes | ⬜ Todo | SHA256 verification for downloaded models (currently size-only check) |
+| Streaming transcription | ⬜ Todo | Real-time partial results for lower perceived latency |
 
 ## CLI Commands
 
@@ -148,4 +163,4 @@ Models auto-download on first run from Hugging Face.
 
 **Phase 3: Menu Bar App** - Building Tauri system tray application.
 
-Phase 2 complete: gRPC IPC between daemon and CLI with process management.
+Phase 2.5 complete: Controller-Engine integration wired up with progress events and CLI display.

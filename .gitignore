@@ -13,3 +13,6 @@ target
 
 # Models (downloaded separately)
 /models/
+
+# Worktrees
+.worktrees/

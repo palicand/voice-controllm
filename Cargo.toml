@@ -7,3 +7,7 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/palicand/voice-controllm"
+
+[workspace.lints.clippy]
+excessive_nesting = "warn"
+too_many_lines = "warn"

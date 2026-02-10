@@ -105,7 +105,6 @@ async fn cmd_start() -> Result<()> {
 
     println!("Starting daemon...");
 
-    // Spawn detached
     std::process::Command::new(&daemon_path)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
@@ -113,25 +112,174 @@ async fn cmd_start() -> Result<()> {
         .spawn()
         .context("Failed to spawn daemon")?;
 
-    // Wait for socket to appear (up to 30 seconds for model download on first run)
-    let mut notified = false;
-    for i in 0..300 {
+    // Wait for daemon to accept connections
+    print!("Waiting for daemon to start...");
+    use std::io::Write;
+    std::io::stdout().flush().ok();
+
+    for _ in 0..50 {
         tokio::time::sleep(Duration::from_millis(100)).await;
         if client::is_daemon_running(&sock_path).await {
-            let pid_path = voice_controllm_daemon::socket::pid_path()?;
-            let pid = std::fs::read_to_string(&pid_path).unwrap_or_else(|_| "unknown".to_string());
-            println!("Daemon started (PID: {})", pid.trim());
-            return Ok(());
+            break;
         }
-        if i == 20 && !notified {
-            println!(
-                "Waiting for daemon to initialize (models may need to be downloaded on first run)..."
-            );
-            notified = true;
+    }
+    println!();
+
+    if !client::is_daemon_running(&sock_path).await {
+        let log_path = voice_controllm_daemon::socket::log_path()?;
+        eprintln!("Daemon failed to start. Check logs: {}", log_path.display());
+        std::process::exit(1);
+    }
+
+    // Connect and check current state
+    let mut grpc_client = client::connect(&sock_path).await?;
+    wait_for_ready(&mut grpc_client).await
+}
+
+/// Poll daemon status until it leaves Initializing, showing progress from event stream.
+async fn wait_for_ready(
+    grpc_client: &mut voice_controllm_proto::voice_controllm_client::VoiceControllmClient<
+        tonic::transport::Channel,
+    >,
+) -> Result<()> {
+    // Check if already past initialization
+    if !is_initializing(grpc_client).await? {
+        print_daemon_ready()?;
+        return Ok(());
+    }
+
+    println!("Initializing models...");
+
+    // Subscribe for progress events, but poll status as fallback
+    // (events sent before subscribe are missed)
+    let mut stream = client::subscribe(grpc_client).await?;
+
+    loop {
+        tokio::select! {
+            msg = stream.message() => {
+                match msg? {
+                    Some(event) => {
+                        if handle_init_event(event, grpc_client).await? {
+                            return Ok(());
+                        }
+                    }
+                    None => break, // stream ended
+                }
+            }
+            _ = tokio::time::sleep(Duration::from_secs(2)) => {
+                // Fallback: poll status in case we missed the Ready event
+                if !is_initializing(grpc_client).await? {
+                    print_daemon_ready()?;
+                    return Ok(());
+                }
+            }
         }
     }
 
-    anyhow::bail!("Daemon failed to start within 30 seconds");
+    print_daemon_ready()?;
+    Ok(())
+}
+
+async fn is_initializing(
+    grpc_client: &mut voice_controllm_proto::voice_controllm_client::VoiceControllmClient<
+        tonic::transport::Channel,
+    >,
+) -> Result<bool> {
+    let status = grpc_client
+        .get_status(Empty {})
+        .await
+        .context("Failed to get status")?
+        .into_inner();
+
+    if let Some(StatusVariant::Healthy(h)) = status.status {
+        let state = State::try_from(h.state).unwrap_or(State::Stopped);
+        return Ok(state == State::Initializing);
+    }
+    Ok(false)
+}
+
+fn print_daemon_ready() -> Result<()> {
+    let pid_path = voice_controllm_daemon::socket::pid_path()?;
+    let pid = std::fs::read_to_string(&pid_path).unwrap_or_else(|_| "unknown".to_string());
+    println!("Daemon ready (PID: {})", pid.trim());
+    Ok(())
+}
+
+/// Handle a single init event. Returns true if initialization is complete.
+async fn handle_init_event(
+    event: voice_controllm_proto::Event,
+    grpc_client: &mut voice_controllm_proto::voice_controllm_client::VoiceControllmClient<
+        tonic::transport::Channel,
+    >,
+) -> Result<bool> {
+    use voice_controllm_proto::event::Event as EventType;
+    use voice_controllm_proto::init_progress::Progress;
+
+    match event.event {
+        Some(EventType::InitProgress(progress)) => match progress.progress {
+            Some(Progress::ModelDownload(dl)) => {
+                let mb_done = dl.bytes_downloaded as f64 / 1_000_000.0;
+                let mb_total = dl.bytes_total as f64 / 1_000_000.0;
+                if mb_total > 0.0 {
+                    print!(
+                        "\rDownloading {}... {:.0}/{:.0} MB",
+                        dl.model_name, mb_done, mb_total
+                    );
+                } else {
+                    print!("\rDownloading {}... {:.0} MB", dl.model_name, mb_done);
+                }
+                use std::io::Write;
+                std::io::stdout().flush().ok();
+            }
+            Some(Progress::ModelLoad(load)) => {
+                println!("Loading {}...", load.model_name);
+            }
+            Some(Progress::Ready(_)) => {
+                print_daemon_ready()?;
+                return Ok(true);
+            }
+            None => {}
+        },
+        Some(EventType::DaemonError(err)) => {
+            handle_daemon_error(err, grpc_client).await?;
+        }
+        Some(EventType::StateChange(_) | EventType::Transcription(_)) | None => {}
+    }
+    Ok(false)
+}
+
+async fn handle_daemon_error(
+    err: voice_controllm_proto::DaemonError,
+    grpc_client: &mut voice_controllm_proto::voice_controllm_client::VoiceControllmClient<
+        tonic::transport::Channel,
+    >,
+) -> Result<()> {
+    let kind = voice_controllm_proto::ErrorKind::try_from(err.kind)
+        .unwrap_or(voice_controllm_proto::ErrorKind::ErrorUnknown);
+    match kind {
+        voice_controllm_proto::ErrorKind::ErrorModelMissing => {
+            println!("Model '{}' not found. Downloading...", err.model_name);
+            grpc_client
+                .download_models(Empty {})
+                .await
+                .context("Failed to trigger model download")?;
+        }
+        voice_controllm_proto::ErrorKind::ErrorModelCorrupted => {
+            println!(
+                "Model '{}' appears corrupted: {}. Re-downloading...",
+                err.model_name, err.message
+            );
+            grpc_client
+                .download_models(Empty {})
+                .await
+                .context("Failed to trigger model re-download")?;
+        }
+        _ => {
+            eprintln!("Daemon error: {}", err.message);
+            std::process::exit(1);
+        }
+    }
+    Ok(())
 }
 
 async fn cmd_stop() -> Result<()> {
@@ -181,6 +329,7 @@ async fn cmd_status() -> Result<()> {
                 State::Stopped => println!("Stopped"),
                 State::Listening => println!("Listening"),
                 State::Paused => println!("Paused"),
+                State::Initializing => println!("Initializing..."),
             }
         }
         Some(StatusVariant::Error(e)) => {
@@ -231,6 +380,9 @@ async fn cmd_toggle() -> Result<()> {
                 State::Stopped => {
                     println!("Daemon is stopped");
                 }
+                State::Initializing => {
+                    println!("Daemon is still initializing, please wait...");
+                }
             }
         }
         Some(StatusVariant::Error(e)) => {
@@ -278,7 +430,7 @@ async fn main() -> Result<()> {
                 println!("Created config file: {}", path.display());
                 println!();
                 println!("Model: {:?}", config.model.model);
-                println!("Languages: {:?}", config.model.languages);
+                println!("Language: {:?}", config.model.language);
             }
             ConfigAction::Show => {
                 let path = Config::config_path()?;
@@ -293,7 +445,7 @@ async fn main() -> Result<()> {
                 println!();
                 println!("[model]");
                 println!("model = {:?}", config.model.model);
-                println!("languages = {:?}", config.model.languages);
+                println!("language = {:?}", config.model.language);
                 println!();
                 println!("[latency]");
                 println!("mode = {:?}", config.latency.mode);

@@ -30,14 +30,19 @@ rubato = "1.0.1"
 serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.49.0", features = ["rt", "fs", "io-util", "rt-multi-thread", "macros", "signal", "process"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
+tokio-util = { version = "0.7.18", features = ["rt"] }
 toml = "0.8"
 tonic = "0.12"
 tower = "0.5"
 tracing = "0.1.44"
+tracing-appender = "0.2.4"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 voice-controllm-proto = { version = "0.1.0", path = "../proto" }
-whisper-rs = { version = "0.15.1", features = ["coreml"] }
+whisper-rs = { version = "0.15.1", features = ["coreml", "tracing_backend"] }
 xdg = "3.0.0"
+
+[lints]
+workspace = true
 
 [dev-dependencies]
 ctrlc = "3.5.1"

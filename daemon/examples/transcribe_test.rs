@@ -12,6 +12,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::signal;
+use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 use voice_controllm_daemon::config::Config;
 use voice_controllm_daemon::engine::Engine;
@@ -30,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
 
     let config = Config::load()?;
     println!("Model: {:?}", config.model.model);
-    println!("Languages: {:?}", config.model.languages);
+    println!("Language: {:?}", config.model.language);
     println!();
 
     let mut engine = Engine::new(config)?;
@@ -41,6 +42,22 @@ async fn main() -> anyhow::Result<()> {
     println!("Starting engine...");
     println!();
 
+    engine.initialize(|_| {}).await?;
+
+    let cancel = CancellationToken::new();
+    let cancel_clone = cancel.clone();
+
+    // Bridge AtomicBool to CancellationToken
+    tokio::spawn(async move {
+        loop {
+            if !running.load(Ordering::SeqCst) {
+                cancel_clone.cancel();
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+    });
+
     // Race engine against Ctrl+C - when Ctrl+C fires, the engine future is dropped
     tokio::select! {
         biased;
@@ -50,7 +67,7 @@ async fn main() -> anyhow::Result<()> {
             r.store(false, Ordering::SeqCst);
         }
 
-        result = engine.run(running, |text| {
+        result = engine.run_loop(cancel, |text| {
             println!(">>> {}", text);
         }) => {
             if let Err(e) = result {

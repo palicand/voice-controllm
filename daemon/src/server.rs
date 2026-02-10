@@ -52,12 +52,30 @@ impl VoiceControllm for VoiceControllmService {
         Ok(Response::new(Empty {}))
     }
 
+    async fn download_models(&self, _request: Request<Empty>) -> Result<Response<Empty>, Status> {
+        let controller = self.controller.clone();
+        tokio::spawn(async move {
+            if let Some(mut engine) = controller.take_engine().await {
+                let result = engine.initialize(|_| {}).await;
+                controller.return_engine(engine).await;
+                match result {
+                    Ok(()) => controller.mark_ready().await,
+                    Err(e) => {
+                        tracing::error!(error = %e, "Model re-download failed");
+                    }
+                }
+            }
+        });
+        Ok(Response::new(Empty {}))
+    }
+
     async fn get_status(
         &self,
         _request: Request<Empty>,
     ) -> Result<Response<voice_controllm_proto::Status>, Status> {
         let state = self.controller.state().await;
         let proto_state = match state {
+            ControllerState::Initializing => State::Initializing,
             ControllerState::Stopped => State::Stopped,
             ControllerState::Listening => State::Listening,
             ControllerState::Paused => State::Paused,

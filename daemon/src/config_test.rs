@@ -7,7 +7,7 @@ fn test_default_config_values() {
 
     // Model defaults
     assert_eq!(config.model.model, SpeechModel::WhisperBase);
-    assert_eq!(config.model.languages, vec!["auto"]);
+    assert_eq!(config.model.language, "auto");
 
     // Latency defaults
     assert_eq!(config.latency.mode, LatencyMode::Balanced);
@@ -25,7 +25,7 @@ fn test_load_valid_config_from_file() {
     let toml_content = r#"
 [model]
 model = "whisper-base-en"
-languages = ["en"]
+language = "en"
 
 [latency]
 mode = "fast"
@@ -40,7 +40,7 @@ allowlist = ["kitty", "alacritty"]
     let config = Config::load_from(&config_path).unwrap();
 
     assert_eq!(config.model.model, SpeechModel::WhisperBaseEn);
-    assert_eq!(config.model.languages, vec!["en"]);
+    assert_eq!(config.model.language, "en");
     assert_eq!(config.latency.mode, LatencyMode::Fast);
     assert!((config.latency.min_chunk_seconds - 0.5).abs() < f32::EPSILON);
     assert_eq!(
@@ -93,7 +93,7 @@ model = "whisper-tiny"
     // Specified value
     assert_eq!(config.model.model, SpeechModel::WhisperTiny);
     // Default values for unspecified fields
-    assert_eq!(config.model.languages, vec!["auto"]);
+    assert_eq!(config.model.language, "auto");
     assert_eq!(config.latency.mode, LatencyMode::Balanced);
     assert!(config.injection.allowlist.is_empty());
 }
@@ -124,7 +124,7 @@ fn test_save_and_load_roundtrip() {
     let original = Config {
         model: ModelConfig {
             model: SpeechModel::WhisperMedium,
-            languages: vec!["cs".to_string(), "en".to_string()],
+            language: "cs".to_string(),
         },
         latency: LatencyConfig {
             mode: LatencyMode::Accurate,
@@ -132,6 +132,9 @@ fn test_save_and_load_roundtrip() {
         },
         injection: InjectionConfig {
             allowlist: vec!["IntelliJ IDEA".to_string()],
+        },
+        logging: LoggingConfig {
+            level: LogLevel::Debug,
         },
     };
 
@@ -191,15 +194,23 @@ fn test_empty_allowlist_not_serialized() {
 }
 
 #[test]
-fn test_multilingual_config() {
+fn test_language_auto_detection() {
     let toml_content = r#"
 [model]
-languages = ["cs", "en", "de"]
+language = "auto"
 "#;
 
     let config = Config::parse(toml_content).unwrap();
-    assert_eq!(
-        config.model.languages,
-        vec!["cs".to_string(), "en".to_string(), "de".to_string()]
-    );
+    assert_eq!(config.model.language, "auto");
+}
+
+#[test]
+fn test_language_specific() {
+    let toml_content = r#"
+[model]
+language = "slovak"
+"#;
+
+    let config = Config::parse(toml_content).unwrap();
+    assert_eq!(config.model.language, "slovak");
 }

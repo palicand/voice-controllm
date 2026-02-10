@@ -2,10 +2,14 @@
 //!
 //! Starts the daemon in-process with a temporary socket/PID directory,
 //! then exercises the full control flow through the gRPC client.
+//!
+//! Note: start_listening/stop_listening require initialized engine (real models),
+//! so we test the control plane without audio here.
 
 use std::time::Duration;
 
-use voice_controllm_daemon::daemon::{DaemonPaths, run_with_paths};
+use voice_controllm_daemon::config::Config;
+use voice_controllm_daemon::daemon::{DaemonPaths, run_with_paths_and_config};
 use voice_controllm_proto::voice_controllm_client::VoiceControllmClient;
 use voice_controllm_proto::{Empty, State, status::Status as StatusVariant};
 
@@ -55,27 +59,29 @@ async fn test_daemon_grpc_lifecycle() {
         pid: pid_path.clone(),
     };
 
+    // Use default config — init will fail fast because models aren't in the
+    // default XDG dir (test runs with a clean model manager).
+    let config = Config::default();
+
     // Spawn daemon as background task
-    let daemon_handle = tokio::spawn(async move { run_with_paths(paths).await });
+    let daemon_handle = tokio::spawn(async move { run_with_paths_and_config(paths, config).await });
 
     // Connect (with retry for startup race)
     let mut client = connect_with_retry(&sock_path, Duration::from_secs(5)).await;
 
-    // Initial status: Paused
-    let status = client.get_status(Empty {}).await.unwrap().into_inner();
-    assert_eq!(extract_state(status), State::Paused);
+    // Wait for init attempt to complete (should fail quickly with no models)
+    tokio::time::sleep(Duration::from_millis(500)).await;
 
-    // Start listening
-    client.start_listening(Empty {}).await.unwrap();
+    // Get current state — Initializing (init failed, engine returned but not marked ready)
     let status = client.get_status(Empty {}).await.unwrap().into_inner();
-    assert_eq!(extract_state(status), State::Listening);
+    let state = extract_state(status);
+    assert!(
+        state == State::Paused || state == State::Initializing,
+        "Expected Paused or Initializing, got {:?}",
+        state
+    );
 
-    // Stop listening
-    client.stop_listening(Empty {}).await.unwrap();
-    let status = client.get_status(Empty {}).await.unwrap().into_inner();
-    assert_eq!(extract_state(status), State::Paused);
-
-    // Shutdown
+    // Shutdown should always work regardless of state
     client.shutdown(Empty {}).await.unwrap();
 
     // Wait for daemon to exit

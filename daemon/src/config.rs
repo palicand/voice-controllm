@@ -13,6 +13,7 @@ pub struct Config {
     pub model: ModelConfig,
     pub latency: LatencyConfig,
     pub injection: InjectionConfig,
+    pub logging: LoggingConfig,
 }
 
 /// Configuration for the speech recognition model.
@@ -21,8 +22,9 @@ pub struct Config {
 pub struct ModelConfig {
     /// Speech recognition model to use.
     pub model: SpeechModel,
-    /// Languages to recognize. Use ["auto"] for automatic detection.
-    pub languages: Vec<String>,
+    /// Language for transcription. Use "auto" for automatic detection,
+    /// or a specific language (e.g. "en", "english", "sk", "slovak").
+    pub language: String,
 }
 
 /// Latency/accuracy trade-off configuration.
@@ -72,11 +74,44 @@ pub struct InjectionConfig {
     pub allowlist: Vec<String>,
 }
 
+/// Logging configuration.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LoggingConfig {
+    /// Log level: "error", "warn", "info", "debug", "trace".
+    pub level: LogLevel,
+}
+
+/// Log verbosity level.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum LogLevel {
+    Error,
+    Warn,
+    #[default]
+    Info,
+    Debug,
+    Trace,
+}
+
+impl LogLevel {
+    /// Convert to a tracing filter directive string for the daemon crate.
+    pub fn as_directive(&self) -> &'static str {
+        match self {
+            LogLevel::Error => "voice_controllm_daemon=error",
+            LogLevel::Warn => "voice_controllm_daemon=warn",
+            LogLevel::Info => "voice_controllm_daemon=info",
+            LogLevel::Debug => "voice_controllm_daemon=debug",
+            LogLevel::Trace => "voice_controllm_daemon=trace",
+        }
+    }
+}
+
 impl Default for ModelConfig {
     fn default() -> Self {
         Self {
             model: SpeechModel::default(),
-            languages: vec!["auto".to_string()],
+            language: "auto".to_string(),
         }
     }
 }
