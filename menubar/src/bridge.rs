@@ -14,6 +14,8 @@ use crate::state::AppState;
 #[derive(Debug, Clone)]
 pub enum AppEvent {
     StateChanged(AppState),
+    ShutdownRequested,
+    ShutdownComplete,
 }
 
 /// Commands sent from the GUI thread to the async runtime.
@@ -54,6 +56,22 @@ pub fn spawn_async_runtime(event_proxy: EventLoopProxy<UserEvent>) -> mpsc::Send
 }
 
 async fn async_main(event_proxy: EventLoopProxy<UserEvent>, cmd_rx: mpsc::Receiver<Command>) {
+    // Listen for SIGTERM/SIGINT to trigger graceful shutdown
+    let signal_proxy = event_proxy.clone();
+    tokio::spawn(async move {
+        let mut sigterm =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                .expect("failed to register SIGTERM handler");
+        let mut sigint =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
+                .expect("failed to register SIGINT handler");
+        tokio::select! {
+            _ = sigterm.recv() => {}
+            _ = sigint.recv() => {}
+        }
+        let _ = signal_proxy.send_event(UserEvent::App(AppEvent::ShutdownRequested));
+    });
+
     let socket_path = match paths::socket_path() {
         Ok(p) => p,
         Err(e) => {
@@ -99,6 +117,8 @@ async fn async_main(event_proxy: EventLoopProxy<UserEvent>, cmd_rx: mpsc::Receiv
             }
         }
     }
+
+    let _ = event_proxy.send_event(UserEvent::App(AppEvent::ShutdownComplete));
 }
 
 enum ConnectionResult {

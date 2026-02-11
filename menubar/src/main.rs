@@ -14,18 +14,16 @@ use bridge::{AppEvent, Command, UserEvent};
 use state::AppState;
 
 fn main() {
-    #[cfg(target_os = "macos")]
-    {
-        use objc2::MainThreadMarker;
-        use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
-        let mtm = unsafe { MainThreadMarker::new_unchecked() };
-        let app = NSApplication::sharedApplication(mtm);
-        app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
-    }
-
     icons::validate();
 
-    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
+    let mut event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
+
+    // Hide from Dock — must be set before run(), tao applies it during launch
+    #[cfg(target_os = "macos")]
+    {
+        use tao::platform::macos::{ActivationPolicy, EventLoopExtMacOS};
+        event_loop.set_activation_policy(ActivationPolicy::Accessory);
+    }
 
     // Forward tray/menu events into the tao event loop
     let proxy = event_loop.create_proxy();
@@ -44,6 +42,7 @@ fn main() {
     let (_menu, mut menu_items) = tray::build_menu(&current_state);
 
     let mut tray_icon = None;
+    let mut shutting_down = false;
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -63,10 +62,9 @@ fn main() {
             }
 
             Event::UserEvent(UserEvent::Menu(event)) => {
-                if event.id == menu_items.quit.id() {
+                if event.id == menu_items.quit.id() && !shutting_down {
+                    shutting_down = true;
                     let _ = cmd_tx.send(Command::Shutdown);
-                    tray_icon.take();
-                    *control_flow = ControlFlow::Exit;
                 } else if event.id == menu_items.toggle.id() {
                     match current_state {
                         AppState::Listening => {
@@ -78,6 +76,18 @@ fn main() {
                         _ => {}
                     }
                 }
+            }
+
+            Event::UserEvent(UserEvent::App(AppEvent::ShutdownRequested)) => {
+                if !shutting_down {
+                    shutting_down = true;
+                    let _ = cmd_tx.send(Command::Shutdown);
+                }
+            }
+
+            Event::UserEvent(UserEvent::App(AppEvent::ShutdownComplete)) => {
+                tray_icon.take();
+                *control_flow = ControlFlow::Exit;
             }
 
             Event::UserEvent(UserEvent::App(AppEvent::StateChanged(new_state))) => {
