@@ -12,8 +12,3 @@ fn state_dir() -> Result<PathBuf> {
 pub fn socket_path() -> Result<PathBuf> {
     Ok(state_dir()?.join("daemon.sock"))
 }
-
-/// Daemon PID file path.
-pub fn pid_path() -> Result<PathBuf> {
-    Ok(state_dir()?.join("daemon.pid"))
-}
