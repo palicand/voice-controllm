@@ -1,4 +1,6 @@
+mod client;
 mod icons;
+mod paths;
 mod state;
 mod tray;
 
