@@ -1,3 +1,5 @@
+mod icons;
+
 use tao::event_loop::EventLoopBuilder;
 
 fn main() {
