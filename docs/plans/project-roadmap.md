@@ -13,7 +13,7 @@ Offline voice dictation utility for macOS accessibility.
 ```
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
 │   Menu Bar   │────▶│    Daemon    │◀────│     CLI      │
-│    (Tauri)   │     │   (Rust)     │     │    (vcm)     │
+│  (tray-icon) │     │   (Rust)     │     │    (vcm)     │
 └──────────────┘     └──────────────┘     └──────────────┘
                             │
                 ┌───────────┼───────────┐
@@ -75,18 +75,22 @@ Connect the daemon's control layer to the audio pipeline.
 | Model integrity check | ✅ Done | Detect missing vs corrupted models |
 | DownloadModels RPC | ✅ Done | Re-download models on demand |
 
-### Phase 3: Menu Bar App
+### Phase 3: Menu Bar App ✅ Complete
 
-System tray application for easy control.
+System tray application using tray-icon/muda/tao (lightweight, cross-platform).
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| Tauri setup | ⬜ Todo | menubar/ crate with Tauri |
-| Status indicator | ⬜ Todo | Icon: green=listening, gray=off, red=error |
-| Toggle listening | ⬜ Todo | Click to turn on/off |
-| Settings access | ⬜ Todo | Open config or preferences |
-| Quit | ⬜ Todo | Exit daemon and app |
-| Daemon lifecycle | ⬜ Todo | Menu bar manages daemon process |
+| Crate scaffold | ✅ Done | menubar/ crate with tao event loop |
+| Icon assets | ✅ Done | Lucide mic icons with colored state dots |
+| AppState types | ✅ Done | State enum with proto conversion + menu helpers |
+| Tray icon + menu | ✅ Done | Dynamic menu rebuild on state change |
+| gRPC client | ✅ Done | Unix socket connection (same pattern as CLI) |
+| Async bridge | ✅ Done | tokio↔tao channel bridge for commands/events |
+| Daemon lifecycle | ✅ Done | Spawn, connect, reconnect, shutdown |
+| Toggle listening | ✅ Done | Pause/resume via menu |
+| Quit | ✅ Done | Shutdown daemon and exit |
+| Settings access | ⬜ Deferred | Open config or preferences (Phase 4) |
 
 ### Phase 4: Polish & Distribution
 
@@ -161,6 +165,6 @@ Models auto-download on first run from Hugging Face.
 
 ## Current Focus
 
-**Phase 3: Menu Bar App** - Building Tauri system tray application.
+**Phase 4: Polish & Distribution** - Production readiness.
 
-Phase 2.5 complete: Controller-Engine integration wired up with progress events and CLI display.
+Phase 3 complete: Menu bar app with tray-icon/muda/tao, daemon lifecycle, and state-driven UI.
