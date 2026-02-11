@@ -1,4 +1,5 @@
 mod icons;
+mod state;
 
 use tao::event_loop::EventLoopBuilder;
 
