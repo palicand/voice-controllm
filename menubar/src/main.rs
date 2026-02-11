@@ -14,6 +14,15 @@ use bridge::{AppEvent, Command, UserEvent};
 use state::AppState;
 
 fn main() {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2::MainThreadMarker;
+        use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
+        let mtm = unsafe { MainThreadMarker::new_unchecked() };
+        let app = NSApplication::sharedApplication(mtm);
+        app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
+    }
+
     icons::validate();
 
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();

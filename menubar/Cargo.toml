@@ -22,4 +22,6 @@ voice-controllm-proto = { version = "0.1.0", path = "../proto" }
 xdg = "3.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.6.3", default-features = false }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSRunningApplication"] }
 objc2-core-foundation = { version = "0.3", default-features = false, features = ["std", "CFRunLoop"] }
