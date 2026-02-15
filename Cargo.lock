@@ -3653,12 +3653,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "hyper-util",
  "tokio",
  "tonic",
- "tower 0.5.3",
  "tracing",
  "tracing-subscriber",
+ "voice-controllm-common",
  "voice-controllm-daemon",
  "voice-controllm-proto",
 ]
@@ -3693,6 +3692,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "voice-controllm-common"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "hyper-util",
+ "tokio",
+ "tonic",
+ "tower 0.5.3",
+ "voice-controllm-proto",
+ "xdg",
+]
+
+[[package]]
 name = "voice-controllm-daemon"
 version = "0.1.0"
 dependencies = [
@@ -3722,9 +3734,9 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+ "voice-controllm-common",
  "voice-controllm-proto",
  "whisper-rs",
- "xdg",
 ]
 
 [[package]]
@@ -3732,17 +3744,14 @@ name = "voice-controllm-menubar"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "hyper-util",
  "image",
  "objc2-core-foundation",
  "tao",
  "tokio",
- "tonic",
- "tower 0.5.3",
  "tracing",
  "tray-icon",
+ "voice-controllm-common",
  "voice-controllm-proto",
- "xdg",
 ]
 
 [[package]]

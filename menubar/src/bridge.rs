@@ -6,8 +6,9 @@ use voice_controllm_proto::event::Event as EventType;
 use voice_controllm_proto::init_progress::Progress;
 use voice_controllm_proto::{Empty, State as ProtoState, status::Status as StatusVariant};
 
-use crate::client;
-use crate::paths;
+use voice_controllm_common::client;
+use voice_controllm_common::dirs;
+
 use crate::state::AppState;
 
 /// Events sent from the async runtime to the GUI thread.
@@ -59,12 +60,10 @@ async fn async_main(event_proxy: EventLoopProxy<UserEvent>, cmd_rx: mpsc::Receiv
     // Listen for SIGTERM/SIGINT to trigger graceful shutdown
     let signal_proxy = event_proxy.clone();
     tokio::spawn(async move {
-        let mut sigterm =
-            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                .expect("failed to register SIGTERM handler");
-        let mut sigint =
-            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
-                .expect("failed to register SIGINT handler");
+        let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to register SIGTERM handler");
+        let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
+            .expect("failed to register SIGINT handler");
         tokio::select! {
             _ = sigterm.recv() => {}
             _ = sigint.recv() => {}
@@ -72,7 +71,7 @@ async fn async_main(event_proxy: EventLoopProxy<UserEvent>, cmd_rx: mpsc::Receiv
         let _ = signal_proxy.send_event(UserEvent::App(AppEvent::ShutdownRequested));
     });
 
-    let socket_path = match paths::socket_path() {
+    let socket_path = match dirs::socket_path() {
         Ok(p) => p,
         Err(e) => {
             tracing::error!("Failed to determine socket path: {e}");

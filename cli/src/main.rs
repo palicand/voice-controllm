@@ -1,12 +1,11 @@
-mod client;
-
 use std::time::Duration;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
+use voice_controllm_common::client;
+use voice_controllm_common::dirs::socket_path;
 use voice_controllm_daemon::config::{Config, SpeechModel};
-use voice_controllm_daemon::socket::socket_path;
 use voice_controllm_proto::{Empty, State, status::Status as StatusVariant};
 
 #[derive(Parser)]

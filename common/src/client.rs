@@ -1,4 +1,4 @@
-//! gRPC client for communicating with daemon.
+//! gRPC client for communicating with the voice-controllm daemon.
 
 use std::path::Path;
 
@@ -14,7 +14,6 @@ use voice_controllm_proto::voice_controllm_client::VoiceControllmClient;
 pub async fn connect(socket_path: impl AsRef<Path>) -> Result<VoiceControllmClient<Channel>> {
     let socket_path = socket_path.as_ref().to_path_buf();
 
-    // Create channel with Unix socket connector
     let channel = Endpoint::try_from("http://[::]:50051")?
         .connect_with_connector(service_fn(move |_: Uri| {
             let path = socket_path.clone();
