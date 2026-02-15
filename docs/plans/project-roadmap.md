@@ -92,33 +92,50 @@ System tray application using tray-icon/muda/tao (lightweight, cross-platform).
 | Quit | ✅ Done | Shutdown daemon and exit |
 | Settings access | ⬜ Deferred | Open config or preferences (Phase 4) |
 
-### Phase 4: Polish & Distribution
+### Phase 4a: Polish & Distribution
 
-Production readiness.
+Production readiness and installability.
 
 | Component | Status | Description |
 |-----------|--------|-------------|
+| Rename daemon to `vcmd` | ⬜ Todo | Unix convention for daemon binary name |
+| `cargo install` support | ⬜ Todo | All three binaries installable via cargo |
+| GitHub release workflow | ⬜ Todo | Tag-triggered builds, macOS ARM64 tarball |
+| Config documentation | ⬜ Todo | `docs/configuration.md` reference |
+| Language switching | ⬜ Todo | Menu bar + CLI language selection, `SetLanguage` RPC |
+| App icon | ⬜ Todo | Soundwave microphone concept for AI generation |
+| VAD speech cutoff fix | ⬜ Todo | Pre-roll buffer to capture speech start |
+
+### Phase 4b: Future Enhancements
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| Expanded models | ⬜ Design only | Canary (NeMo/ONNX), Voxtral (LLM-based) via extensible transcriber trait |
+| Streaming transcription | ⬜ Design only | Sliding window partial results for lower perceived latency |
+| Text formatting | ⬜ Design only | Post-processing pipeline: rule-based then LLM-enhanced dictation intelligence |
 | launchd integration | ⬜ Todo | `vcm install` to run on login |
 | DMG packaging | ⬜ Todo | Distributable macOS installer |
 | Code signing | ⬜ Todo | Sign for Gatekeeper |
 | Accessibility permissions | ⬜ Todo | Guide user through granting permissions |
 | Error recovery | ⬜ Todo | Handle mic disconnect, model errors gracefully |
 | Model integrity hashes | ⬜ Todo | SHA256 verification for downloaded models (currently size-only check) |
-| Streaming transcription | ⬜ Todo | Real-time partial results for lower perceived latency |
+| Linux/Windows support | ⬜ Todo | Cross-platform with GPU runtime support |
 
 ## CLI Commands
 
 ```
-vcm start              # Start daemon in background
+vcm start              # Start daemon (vcmd) in background
 vcm stop               # Stop daemon
 vcm status             # Show daemon state (listening/paused/stopped)
 vcm toggle             # Toggle listening on/off
+vcm language get       # Show current language
+vcm language set <code> # Switch language (any valid Whisper code)
 
 vcm test-mic           # Test microphone input (debug)
 vcm transcribe <file>  # Transcribe audio file (debug)
 
-vcm install            # Install launchd service (Phase 4)
-vcm uninstall          # Remove launchd service (Phase 4)
+vcm install            # Install launchd service (Phase 4b)
+vcm uninstall          # Remove launchd service (Phase 4b)
 ```
 
 ## Menu Bar
@@ -129,7 +146,12 @@ vcm uninstall          # Remove launchd service (Phase 4)
 ├─────────────────────┤
 │ ○ Pause Listening   │  ← Toggle
 │ ─────────────────── │
-│   Settings...       │  ← Opens config
+│ Language             │
+│   ● English         │  ← Radio group from [gui].languages
+│   ○ Czech           │
+│   ○ German          │
+│   ○ Auto            │  ← Always present
+│ ─────────────────── │
 │   Quit              │
 └─────────────────────┘
 ```
@@ -140,15 +162,21 @@ Location: `~/.config/voice-controllm/config.toml`
 
 ```toml
 [model]
-model = "canary-1b"
-languages = ["en", "de", "cs"]
+model = "whisper-base"
+language = "en"
 
 [latency]
 mode = "balanced"
-min_chunk_seconds = 0.5
+min_chunk_seconds = 1.0
 
 [injection]
 allowlist = []  # empty = inject everywhere
+
+[logging]
+level = "info"
+
+[gui]
+languages = ["en", "cs", "de"]  # menu bar language list
 ```
 
 ## Models
@@ -165,6 +193,6 @@ Models auto-download on first run from Hugging Face.
 
 ## Current Focus
 
-**Phase 4: Polish & Distribution** - Production readiness.
+**Phase 4a: Polish & Distribution** - Rename, releases, language switching, docs, icon.
 
-Phase 3 complete: Menu bar app with tray-icon/muda/tao, daemon lifecycle, and state-driven UI.
+See `docs/plans/2026-02-15-phase4-design.md` for full design.
