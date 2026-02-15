@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["daemon", "cli", "proto"]
+members = ["common", "daemon", "cli", "proto", "menubar"]
 
 [workspace.package]
 version = "0.1.0"

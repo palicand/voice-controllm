@@ -10,7 +10,7 @@ voice-controllm/
 ├── daemon/             # Background service - audio capture, VAD, transcription, injection
 ├── cli/                # CLI tool (vcm) - start/stop/status commands
 ├── proto/              # gRPC definitions (Phase 2)
-└── menubar/            # Tauri system tray app (Phase 3)
+└── menubar/            # System tray app - tray-icon/muda/tao (Phase 3)
 ```
 
 ## Design Principles
@@ -47,10 +47,11 @@ cargo clippy
 
 ## Implementation Phases
 
-1. **Phase 0** (current): Project scaffolding, CI setup
+1. **Phase 0**: Project scaffolding, CI setup
 2. **Phase 1**: Core engine - audio capture, VAD, Whisper transcription, keystroke injection
 3. **Phase 2**: IPC layer - gRPC API, daemon/CLI communication, config management
-4. **Phase 3**: Menu bar app - Tauri system tray with status indicator
+4. **Phase 3**: Menu bar app - tray-icon/muda/tao system tray with status indicator
+5. **Phase 4**: Polish & distribution - launchd, DMG, code signing
 
 ## Key Dependencies
 
@@ -59,7 +60,7 @@ cargo clippy
 - `ort` - ONNX Runtime for Silero VAD
 - `enigo` - Keystroke injection
 - `tonic`/`prost` - gRPC (Phase 2)
-- `tauri` - Menu bar app (Phase 3)
+- `tray-icon`/`muda`/`tao` - System tray menu bar app (Phase 3)
 
 ## Configuration
 
