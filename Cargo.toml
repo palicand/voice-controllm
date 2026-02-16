@@ -7,6 +7,9 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/palicand/voice-controllm"
+description = "Offline voice dictation for macOS accessibility"
+categories = ["accessibility", "multimedia::audio"]
+keywords = ["voice", "dictation", "speech-to-text", "accessibility", "macos"]
 
 [workspace.lints.clippy]
 excessive_nesting = "warn"

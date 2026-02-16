@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Background daemon for voice-controllm — audio capture, VAD, transcription"
 
 [lib]
 name = "voice_controllm_daemon"

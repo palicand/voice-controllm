@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "CLI for voice-controllm — start/stop daemon, configure settings"
 
 [lints]
 workspace = true
