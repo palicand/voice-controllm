@@ -136,6 +136,9 @@ fn test_save_and_load_roundtrip() {
         logging: LoggingConfig {
             level: LogLevel::Debug,
         },
+        gui: GuiConfig {
+            languages: vec!["en".to_string(), "cs".to_string()],
+        },
     };
 
     original.save_to(&config_path).unwrap();
@@ -213,4 +216,20 @@ language = "slovak"
 
     let config = Config::parse(toml_content).unwrap();
     assert_eq!(config.model.language, "slovak");
+}
+
+#[test]
+fn gui_languages_parsed() {
+    let toml = r#"
+[gui]
+languages = ["en", "cs", "de"]
+"#;
+    let config: Config = toml::from_str(toml).unwrap();
+    assert_eq!(config.gui.languages, vec!["en", "cs", "de"]);
+}
+
+#[test]
+fn gui_defaults_to_empty_languages() {
+    let config: Config = toml::from_str("").unwrap();
+    assert!(config.gui.languages.is_empty());
 }

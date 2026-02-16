@@ -14,6 +14,7 @@ pub struct Config {
     pub latency: LatencyConfig,
     pub injection: InjectionConfig,
     pub logging: LoggingConfig,
+    pub gui: GuiConfig,
 }
 
 /// Configuration for the speech recognition model.
@@ -92,6 +93,22 @@ pub enum LogLevel {
     Info,
     Debug,
     Trace,
+}
+
+/// Configuration for the menu bar GUI.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GuiConfig {
+    /// Language codes to display in the menu bar for switching.
+    pub languages: Vec<String>,
+}
+
+impl Default for GuiConfig {
+    fn default() -> Self {
+        Self {
+            languages: Vec::new(),
+        }
+    }
 }
 
 impl LogLevel {
