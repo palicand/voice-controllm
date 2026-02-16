@@ -241,7 +241,7 @@ fn spawn_daemon() -> anyhow::Result<()> {
     let daemon_path = std::env::current_exe()?
         .parent()
         .ok_or_else(|| anyhow::anyhow!("No parent directory"))?
-        .join("voice-controllm-daemon");
+        .join("vcmd");
 
     if !daemon_path.exists() {
         anyhow::bail!("Daemon binary not found at: {}", daemon_path.display());

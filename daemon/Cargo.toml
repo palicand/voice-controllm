@@ -10,7 +10,7 @@ name = "voice_controllm_daemon"
 path = "src/lib.rs"
 
 [[bin]]
-name = "voice-controllm-daemon"
+name = "vcmd"
 path = "src/main.rs"
 
 [dependencies]
