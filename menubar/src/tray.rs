@@ -1,17 +1,19 @@
-use tray_icon::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tray_icon::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tray_icon::{TrayIcon, TrayIconBuilder};
 
 use crate::icons;
-use crate::state::AppState;
+use crate::state::{AppState, LanguageInfo};
 
 /// Menu item IDs we need to track for event handling.
 pub struct MenuItems {
     pub toggle: MenuItem,
+    /// Language check menu items: each entry is (CheckMenuItem, language code).
+    pub language_items: Vec<(CheckMenuItem, String)>,
     pub quit: MenuItem,
 }
 
-/// Build the tray menu and items for the given state.
-pub fn build_menu(state: &AppState) -> (Menu, MenuItems) {
+/// Build the tray menu and items for the given state and language info.
+pub fn build_menu(state: &AppState, language: &LanguageInfo) -> (Menu, MenuItems) {
     let menu = Menu::new();
 
     // Status line (disabled)
@@ -22,21 +24,66 @@ pub fn build_menu(state: &AppState) -> (Menu, MenuItems) {
 
     let quit = MenuItem::new("Quit", true, None);
 
-    if state.has_toggle() {
-        menu.append_items(&[
-            &status,
-            &PredefinedMenuItem::separator(),
-            &toggle,
-            &PredefinedMenuItem::separator(),
-            &quit,
-        ])
+    // Build language items if there are available languages
+    let language_items = build_language_items(language);
+
+    // Assemble the menu
+    menu.append_items(&[&status, &PredefinedMenuItem::separator()])
         .expect("failed to build menu");
-    } else {
-        menu.append_items(&[&status, &PredefinedMenuItem::separator(), &quit])
+
+    if state.has_toggle() {
+        menu.append_items(&[&toggle, &PredefinedMenuItem::separator()])
             .expect("failed to build menu");
     }
 
-    (menu, MenuItems { toggle, quit })
+    if !language_items.is_empty() {
+        let label = MenuItem::new("Language", false, None);
+        menu.append_items(&[&label]).expect("failed to build menu");
+        for (item, _code) in &language_items {
+            menu.append_items(&[item]).expect("failed to build menu");
+        }
+        menu.append_items(&[&PredefinedMenuItem::separator()])
+            .expect("failed to build menu");
+    }
+
+    menu.append_items(&[&quit]).expect("failed to build menu");
+
+    (
+        menu,
+        MenuItems {
+            toggle,
+            language_items,
+            quit,
+        },
+    )
+}
+
+/// Build check menu items for each available language plus "auto".
+fn build_language_items(language: &LanguageInfo) -> Vec<(CheckMenuItem, String)> {
+    if language.available.is_empty() {
+        return Vec::new();
+    }
+
+    let mut items = Vec::new();
+
+    for lang in &language.available {
+        let checked = lang == &language.active;
+        let item = CheckMenuItem::new(lang, true, checked, None);
+        items.push((item, lang.clone()));
+    }
+
+    // Always include "auto" if not already present
+    let has_auto = language
+        .available
+        .iter()
+        .any(|l| l.eq_ignore_ascii_case("auto"));
+    if !has_auto {
+        let checked = language.active.eq_ignore_ascii_case("auto");
+        let item = CheckMenuItem::new("auto", true, checked, None);
+        items.push((item, "auto".to_string()));
+    }
+
+    items
 }
 
 /// Create the tray icon with the given state.

@@ -4,17 +4,20 @@ use std::time::Duration;
 use tao::event_loop::EventLoopProxy;
 use voice_controllm_proto::event::Event as EventType;
 use voice_controllm_proto::init_progress::Progress;
-use voice_controllm_proto::{Empty, State as ProtoState, status::Status as StatusVariant};
+use voice_controllm_proto::{
+    Empty, SetLanguageRequest, State as ProtoState, status::Status as StatusVariant,
+};
 
 use voice_controllm_common::client;
 use voice_controllm_common::dirs;
 
-use crate::state::AppState;
+use crate::state::{AppState, LanguageInfo};
 
 /// Events sent from the async runtime to the GUI thread.
 #[derive(Debug, Clone)]
 pub enum AppEvent {
     StateChanged(AppState),
+    LanguageChanged(LanguageInfo),
     ShutdownRequested,
     ShutdownComplete,
 }
@@ -24,6 +27,7 @@ pub enum AppEvent {
 pub enum Command {
     StartListening,
     StopListening,
+    SetLanguage(String),
     Shutdown,
 }
 
@@ -144,6 +148,11 @@ async fn run_connected(
         send_state(event_proxy, state);
     }
 
+    // Get initial language info
+    if let Ok(resp) = grpc_client.get_language(Empty {}).await {
+        send_language(event_proxy, resp.into_inner());
+    }
+
     // Subscribe to events
     let mut stream = match client::subscribe(&mut grpc_client).await {
         Ok(s) => s,
@@ -166,6 +175,16 @@ async fn run_connected(
             }
             Ok(Command::StopListening) => {
                 let _ = grpc_client.stop_listening(Empty {}).await;
+            }
+            Ok(Command::SetLanguage(lang)) => {
+                if grpc_client
+                    .set_language(SetLanguageRequest { language: lang })
+                    .await
+                    .is_ok()
+                    && let Ok(resp) = grpc_client.get_language(Empty {}).await
+                {
+                    send_language(event_proxy, resp.into_inner());
+                }
             }
             Err(mpsc::TryRecvError::Empty) => {}
             Err(mpsc::TryRecvError::Disconnected) => {
@@ -235,6 +254,17 @@ fn status_to_app_state(status: voice_controllm_proto::Status) -> AppState {
 
 fn send_state(proxy: &EventLoopProxy<UserEvent>, state: AppState) {
     let _ = proxy.send_event(UserEvent::App(AppEvent::StateChanged(state)));
+}
+
+fn send_language(
+    proxy: &EventLoopProxy<UserEvent>,
+    resp: voice_controllm_proto::GetLanguageResponse,
+) {
+    let info = LanguageInfo {
+        active: resp.language,
+        available: resp.available_languages,
+    };
+    let _ = proxy.send_event(UserEvent::App(AppEvent::LanguageChanged(info)));
 }
 
 fn spawn_daemon() -> anyhow::Result<()> {

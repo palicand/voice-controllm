@@ -1,5 +1,12 @@
 use voice_controllm_proto::State as ProtoState;
 
+/// Language configuration: the active language and the list of available languages.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct LanguageInfo {
+    pub active: String,
+    pub available: Vec<String>,
+}
+
 /// Application state derived from daemon status.
 #[derive(Debug, Clone, PartialEq)]
 pub enum AppState {
