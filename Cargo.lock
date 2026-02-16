@@ -3663,6 +3663,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "vcm-menubar"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "image",
+ "objc2-core-foundation",
+ "tao",
+ "tokio",
+ "tracing",
+ "tray-icon",
+ "voice-controllm-common",
+ "voice-controllm-proto",
+]
+
+[[package]]
 name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3737,21 +3752,6 @@ dependencies = [
  "voice-controllm-common",
  "voice-controllm-proto",
  "whisper-rs",
-]
-
-[[package]]
-name = "voice-controllm-menubar"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "image",
- "objc2-core-foundation",
- "tao",
- "tokio",
- "tracing",
- "tray-icon",
- "voice-controllm-common",
- "voice-controllm-proto",
 ]
 
 [[package]]
