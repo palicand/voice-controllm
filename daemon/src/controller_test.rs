@@ -7,7 +7,7 @@ fn create_controller() -> (Controller, oneshot::Receiver<()>) {
     let config = Config::default();
     let engine = Engine::new(config.clone()).unwrap();
     (
-        Controller::new(event_tx, shutdown_tx, engine, config.injection),
+        Controller::new(event_tx, shutdown_tx, engine, config),
         shutdown_rx,
     )
 }
@@ -66,7 +66,7 @@ async fn test_mark_ready_broadcasts_event() {
     let (shutdown_tx, _) = oneshot::channel();
     let config = Config::default();
     let engine = Engine::new(config.clone()).unwrap();
-    let controller = Controller::new(event_tx, shutdown_tx, engine, config.injection);
+    let controller = Controller::new(event_tx, shutdown_tx, engine, config);
 
     controller.mark_ready().await;
 

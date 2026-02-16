@@ -12,10 +12,15 @@ use crate::models::{ModelId, ModelManager};
 use crate::transcribe::{Transcriber, WhisperTranscriber};
 use crate::vad::{VAD_SAMPLE_RATE, VadConfig, VadEvent, VoiceActivityDetector};
 use anyhow::{Context, Result};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
+
+/// Shared language state that can be updated from outside the engine loop.
+///
+/// `None` means auto-detect; `Some("en")` etc. means a specific language.
+pub type SharedLanguage = Arc<Mutex<Option<String>>>;
 
 /// Events emitted during engine initialization.
 #[derive(Debug, Clone)]
@@ -36,6 +41,7 @@ pub enum InitEvent {
 struct InitializedComponents {
     vad: VoiceActivityDetector,
     transcriber: WhisperTranscriber,
+    shared_language: SharedLanguage,
 }
 
 /// Transcription engine.
@@ -43,26 +49,47 @@ pub struct Engine {
     config: Config,
     model_manager: ModelManager,
     components: Option<InitializedComponents>,
+    shared_language: SharedLanguage,
 }
 
 impl Engine {
     /// Create a new engine with the given configuration.
     pub fn new(config: Config) -> Result<Self> {
         let model_manager = ModelManager::new()?;
+        let language = if config.model.language == "auto" {
+            None
+        } else {
+            Some(config.model.language.clone())
+        };
         Ok(Self {
             config,
             model_manager,
             components: None,
+            shared_language: Arc::new(Mutex::new(language)),
         })
     }
 
     /// Create a new engine with a custom model manager.
     pub fn with_model_manager(config: Config, model_manager: ModelManager) -> Self {
+        let language = if config.model.language == "auto" {
+            None
+        } else {
+            Some(config.model.language.clone())
+        };
         Self {
             config,
             model_manager,
             components: None,
+            shared_language: Arc::new(Mutex::new(language)),
         }
+    }
+
+    /// Get a handle to the shared language state.
+    ///
+    /// The controller uses this to update the language at runtime.
+    /// The engine reads from it before each transcription call.
+    pub fn shared_language(&self) -> SharedLanguage {
+        Arc::clone(&self.shared_language)
     }
 
     /// Check if the engine has been initialized (models loaded).
@@ -113,7 +140,11 @@ impl Engine {
         let transcriber = WhisperTranscriber::new(&whisper_model_path, language)
             .context("Failed to initialize Whisper")?;
 
-        self.components = Some(InitializedComponents { vad, transcriber });
+        self.components = Some(InitializedComponents {
+            vad,
+            transcriber,
+            shared_language: Arc::clone(&self.shared_language),
+        });
 
         on_progress(InitEvent::Ready);
         info!("Engine initialized");
@@ -268,6 +299,11 @@ fn transcribe_speech(
     );
 
     if !audio.speech.is_empty() {
+        // Sync language from shared state before transcription
+        if let Ok(lang) = components.shared_language.lock() {
+            components.transcriber.set_language(lang.clone());
+        }
+
         match components
             .transcriber
             .transcribe(&audio.speech, VAD_SAMPLE_RATE)
