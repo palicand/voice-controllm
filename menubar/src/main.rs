@@ -78,6 +78,12 @@ impl App {
             }
         } else if let Some(code) = self.find_clicked_language(&event) {
             let _ = self.cmd_tx.send(Command::SetLanguage(code.clone()));
+            // Keep local state in sync so rebuilds before LanguageChanged don't revert
+            self.language.active = if code.eq_ignore_ascii_case("auto") {
+                state::LanguageSelection::Auto
+            } else {
+                state::LanguageSelection::Fixed(code.clone())
+            };
             // Immediate UI feedback: update check states
             for (item, item_code) in &self.menu_items.language_items {
                 item.set_checked(item_code == &code);

@@ -7,7 +7,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 use voice_controllm_proto::{Event, State, StateChange, Transcription};
 
-use crate::config::{Config, InjectionConfig};
+use crate::config::{Config, InitialState, InjectionConfig};
 use crate::engine::{Engine, SharedLanguage};
 use crate::inject::KeystrokeInjector;
 
@@ -48,6 +48,7 @@ pub struct Controller {
     engine: Arc<Mutex<Option<Engine>>>,
     engine_handle: Arc<RwLock<Option<EngineHandle>>>,
     injection_config: InjectionConfig,
+    initial_state: InitialState,
     shared_language: SharedLanguage,
     config: Arc<RwLock<Config>>,
 }
@@ -62,6 +63,7 @@ impl Controller {
     ) -> Self {
         let shared_language = engine.shared_language();
         let injection_config = config.injection.clone();
+        let initial_state = config.daemon.initial_state;
         Self {
             state: Arc::new(RwLock::new(ControllerState::Initializing)),
             event_tx,
@@ -69,6 +71,7 @@ impl Controller {
             engine: Arc::new(Mutex::new(Some(engine))),
             engine_handle: Arc::new(RwLock::new(None)),
             injection_config,
+            initial_state,
             shared_language,
             config: Arc::new(RwLock::new(config)),
         }
@@ -79,12 +82,21 @@ impl Controller {
         *self.state.read().await
     }
 
-    /// Mark initialization complete, transition to Paused.
+    /// Mark initialization complete, transition to configured initial state.
     pub async fn mark_ready(&self) {
-        let mut state = self.state.write().await;
-        if *state == ControllerState::Initializing {
+        {
+            let mut state = self.state.write().await;
+            if *state != ControllerState::Initializing {
+                return;
+            }
             *state = ControllerState::Paused;
             self.broadcast_state_change(ControllerState::Paused);
+        }
+
+        if self.initial_state == InitialState::Listening
+            && let Err(e) = self.start_listening().await
+        {
+            error!(error = %e, "Failed to auto-start listening after initialization");
         }
     }
 
@@ -227,6 +239,15 @@ impl Controller {
             Some(language.to_string())
         };
 
+        // Persist to config first so failures don't partially apply the change
+        {
+            let mut config = self.config.write().await;
+            config.model.language = language.to_string();
+            config
+                .save()
+                .map_err(|e| format!("Failed to save config: {e}"))?;
+        }
+
         // Update shared runtime state
         {
             let mut shared = self
@@ -234,15 +255,6 @@ impl Controller {
                 .lock()
                 .map_err(|e| format!("Failed to lock shared language: {e}"))?;
             *shared = lang;
-        }
-
-        // Persist to config
-        {
-            let mut config = self.config.write().await;
-            config.model.language = language.to_string();
-            config
-                .save()
-                .map_err(|e| format!("Failed to save config: {e}"))?;
         }
 
         info!(language = language, "Language changed");

@@ -645,7 +645,7 @@ The models table should list all variants from `daemon/src/models.rs`:
 | whisper-tiny | ~77 MB | Fastest, least accurate |
 | whisper-tiny.en | ~77 MB | English-only tiny |
 | whisper-base | ~147 MB | Default, good balance |
-| ... etc |
+| ...          | ...     | (see docs/configuration.md for full list) |
 | whisper-large-v3-turbo | ~1.6 GB | Best speed/accuracy ratio for large |
 
 **Step 2: Add README links**

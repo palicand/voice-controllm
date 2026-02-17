@@ -9,8 +9,8 @@ use voice_controllm_daemon::config::{Config, SpeechModel};
 use voice_controllm_proto::{Empty, SetLanguageRequest, State, status::Status as StatusVariant};
 
 #[derive(Parser)]
-#[command(name = "vcm")]
-#[command(about = "Voice-Controllm CLI - offline voice dictation")]
+#[command(name = "vcmctl")]
+#[command(about = "Voice-Controllm CLI - offline voice dictation control")]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
@@ -445,13 +445,18 @@ async fn cmd_language_set(code: String) -> Result<()> {
 
     let mut client = client::connect(&sock_path).await?;
     client
-        .set_language(SetLanguageRequest {
-            language: code.clone(),
-        })
+        .set_language(SetLanguageRequest { language: code })
         .await
         .context("Failed to set language")?;
 
-    println!("Language set to: {}", code);
+    // Echo the server-confirmed language rather than user input
+    let lang = client
+        .get_language(Empty {})
+        .await
+        .context("Failed to get language")?
+        .into_inner();
+
+    println!("Language set to: {}", lang.language);
 
     Ok(())
 }

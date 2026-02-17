@@ -55,12 +55,12 @@ Daemon/CLI communication and process management.
 | gRPC definitions | ✅ Done | proto/ with service definitions |
 | Daemon server | ✅ Done | tonic gRPC server on Unix socket |
 | CLI client | ✅ Done | CLI connects to daemon via gRPC |
-| `vcm start` | ✅ Done | Spawn daemon as background process |
-| `vcm stop` | ✅ Done | Send shutdown signal to daemon |
-| `vcm status` | ✅ Done | Query daemon state |
-| `vcm toggle` | ✅ Done | Quick on/off for listening |
-| `vcm test-mic` | ⬜ Deferred | Test microphone input (Phase 4) |
-| `vcm transcribe <file>` | ⬜ Deferred | Transcribe audio file (Phase 4) |
+| `vcmctl start` | ✅ Done | Spawn daemon as background process |
+| `vcmctl stop` | ✅ Done | Send shutdown signal to daemon |
+| `vcmctl status` | ✅ Done | Query daemon state |
+| `vcmctl toggle` | ✅ Done | Quick on/off for listening |
+| `vcmctl test-mic` | ⬜ Deferred | Test microphone input (Phase 4) |
+| `vcmctl transcribe <file>` | ⬜ Deferred | Transcribe audio file (Phase 4) |
 
 ### Phase 2.5: Controller-Engine Integration ✅ Complete
 
@@ -71,7 +71,7 @@ Connect the daemon's control layer to the audio pipeline.
 | Engine refactor | ✅ Done | Split run() into initialize() + run_loop() |
 | Controller integration | ✅ Done | Controller spawns/cancels engine tasks |
 | Init progress events | ✅ Done | Proto events for model download/load/ready |
-| CLI progress display | ✅ Done | vcm start shows initialization progress |
+| CLI progress display | ✅ Done | vcmctl start shows initialization progress |
 | Model integrity check | ✅ Done | Detect missing vs corrupted models |
 | DownloadModels RPC | ✅ Done | Re-download models on demand |
 
@@ -113,7 +113,7 @@ Production readiness and installability.
 | Expanded models | ⬜ Design only | Canary (NeMo/ONNX), Voxtral (LLM-based) via extensible transcriber trait |
 | Streaming transcription | ⬜ Design only | Sliding window partial results for lower perceived latency |
 | Text formatting | ⬜ Design only | Post-processing pipeline: rule-based then LLM-enhanced dictation intelligence |
-| launchd integration | ⬜ Todo | `vcm install` to run on login |
+| launchd integration | ⬜ Todo | `vcmctl install` to run on login |
 | DMG packaging | ⬜ Todo | Distributable macOS installer |
 | Code signing | ⬜ Todo | Sign for Gatekeeper |
 | Accessibility permissions | ⬜ Todo | Guide user through granting permissions |
@@ -123,19 +123,19 @@ Production readiness and installability.
 
 ## CLI Commands
 
-```
-vcm start              # Start daemon (vcmd) in background
-vcm stop               # Stop daemon
-vcm status             # Show daemon state (listening/paused/stopped)
-vcm toggle             # Toggle listening on/off
-vcm language get       # Show current language
-vcm language set <code> # Switch language (any valid Whisper code)
+```bash
+vcmctl start              # Start daemon (vcmd) in background
+vcmctl stop               # Stop daemon
+vcmctl status             # Show daemon state (listening/paused/stopped)
+vcmctl toggle             # Toggle listening on/off
+vcmctl language get       # Show current language
+vcmctl language set <code> # Switch language (any valid Whisper code)
 
-vcm test-mic           # Test microphone input (debug)
-vcm transcribe <file>  # Transcribe audio file (debug)
+vcmctl test-mic           # Test microphone input (debug)
+vcmctl transcribe <file>  # Transcribe audio file (debug)
 
-vcm install            # Install launchd service (Phase 4b)
-vcm uninstall          # Remove launchd service (Phase 4b)
+vcmctl install            # Install launchd service (Phase 4b)
+vcmctl uninstall          # Remove launchd service (Phase 4b)
 ```
 
 ## Menu Bar

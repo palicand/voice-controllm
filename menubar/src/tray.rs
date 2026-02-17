@@ -16,8 +16,12 @@ pub struct MenuItems {
 pub fn build_menu(state: &AppState, language: &LanguageInfo) -> (Menu, MenuItems) {
     let menu = Menu::new();
 
-    // Status line (disabled)
-    let status = MenuItem::new(state.status_text(), false, None);
+    // Status line (disabled) — includes active language for operational states
+    let status = MenuItem::new(
+        state.status_text_with_language(&language.active),
+        false,
+        None,
+    );
 
     // Toggle action (only shown for Paused/Listening)
     let toggle = MenuItem::new(state.toggle_label(), state.has_toggle(), None);
@@ -67,7 +71,7 @@ fn build_language_items(language: &LanguageInfo) -> Vec<(CheckMenuItem, String)>
     let mut items = Vec::new();
 
     for lang in &language.available {
-        let checked = lang == &language.active;
+        let checked = language.active.matches_code(lang);
         let item = CheckMenuItem::new(lang, true, checked, None);
         items.push((item, lang.clone()));
     }
@@ -78,7 +82,7 @@ fn build_language_items(language: &LanguageInfo) -> Vec<(CheckMenuItem, String)>
         .iter()
         .any(|l| l.eq_ignore_ascii_case("auto"));
     if !has_auto {
-        let checked = language.active.eq_ignore_ascii_case("auto");
+        let checked = language.active.matches_code("auto");
         let item = CheckMenuItem::new("auto", true, checked, None);
         items.push((item, "auto".to_string()));
     }

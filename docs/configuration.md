@@ -6,7 +6,7 @@ voice-controllm is configured via a TOML file at:
 ~/.config/voice-controllm/config.toml
 ```
 
-If the file does not exist, all settings use their defaults. You can generate a default config with `vcm config init`.
+If the file does not exist, all settings use their defaults. You can generate a default config with `vcmctl config init`.
 
 The XDG base directory spec is respected: set `$XDG_CONFIG_HOME` to override `~/.config`.
 
@@ -38,6 +38,9 @@ min_chunk_seconds = 1.0    # Minimum audio chunk before transcribing, in seconds
 
 [logging]
 level = "info"             # Log verbosity (default: info)
+
+[daemon]
+initial_state = "listening"  # State after initialization (default: listening)
 
 [gui]
 # languages = ["en", "cs", "de"]  # Language codes shown in menu bar switcher
@@ -126,7 +129,23 @@ Sets the daemon log verbosity. Logs are written to `~/.local/state/voice-control
 You can override the config level at runtime with the `VCM_LOG` environment variable:
 
 ```bash
-VCM_LOG=debug vcm start
+VCM_LOG=debug vcmctl start
+```
+
+## `[daemon]` section
+
+### `initial_state`
+
+Controls the state the daemon enters after model initialization completes.
+
+| Value         | Description                                           |
+|---------------|-------------------------------------------------------|
+| **`listening`** | **Default.** Start listening immediately after init. |
+| `paused`      | Stay paused -- user must toggle listening manually.   |
+
+```toml
+[daemon]
+initial_state = "paused"
 ```
 
 ## `[gui]` section

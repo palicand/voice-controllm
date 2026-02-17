@@ -260,8 +260,15 @@ fn send_language(
     proxy: &EventLoopProxy<UserEvent>,
     resp: voice_controllm_proto::GetLanguageResponse,
 ) {
+    use crate::state::LanguageSelection;
+
+    let active = if resp.language.is_empty() || resp.language.eq_ignore_ascii_case("auto") {
+        LanguageSelection::Auto
+    } else {
+        LanguageSelection::Fixed(resp.language)
+    };
     let info = LanguageInfo {
-        active: resp.language,
+        active,
         available: resp.available_languages,
     };
     let _ = proxy.send_event(UserEvent::App(AppEvent::LanguageChanged(info)));

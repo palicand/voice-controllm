@@ -8,7 +8,7 @@ Offline voice dictation utility for macOS accessibility.
 voice-controllm/
 ├── Cargo.toml          # Workspace root
 ├── daemon/             # Background service - audio capture, VAD, transcription, injection
-├── cli/                # CLI tool (vcm) - start/stop/status commands
+├── cli/                # CLI tool (vcmctl) - start/stop/status commands
 ├── proto/              # gRPC definitions (Phase 2)
 └── menubar/            # System tray app - tray-icon/muda/tao (Phase 3)
 ```
@@ -33,7 +33,7 @@ voice-controllm/
 cargo build
 
 # Run CLI
-cargo run -p vcm -- start
+cargo run -p vcmctl -- start
 
 # Run tests
 cargo test

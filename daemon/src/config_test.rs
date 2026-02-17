@@ -15,6 +15,9 @@ fn test_default_config_values() {
 
     // Injection defaults
     assert!(config.injection.allowlist.is_empty());
+
+    // Daemon defaults
+    assert_eq!(config.daemon.initial_state, InitialState::Listening);
 }
 
 #[test]
@@ -139,6 +142,9 @@ fn test_save_and_load_roundtrip() {
         gui: GuiConfig {
             languages: vec!["en".to_string(), "cs".to_string()],
         },
+        daemon: DaemonConfig {
+            initial_state: InitialState::Listening,
+        },
     };
 
     original.save_to(&config_path).unwrap();
@@ -232,4 +238,20 @@ languages = ["en", "cs", "de"]
 fn gui_defaults_to_empty_languages() {
     let config: Config = toml::from_str("").unwrap();
     assert!(config.gui.languages.is_empty());
+}
+
+#[test]
+fn daemon_initial_state_defaults_to_listening() {
+    let config: Config = toml::from_str("").unwrap();
+    assert_eq!(config.daemon.initial_state, InitialState::Listening);
+}
+
+#[test]
+fn daemon_initial_state_paused() {
+    let toml = r#"
+[daemon]
+initial_state = "paused"
+"#;
+    let config: Config = toml::from_str(toml).unwrap();
+    assert_eq!(config.daemon.initial_state, InitialState::Paused);
 }
