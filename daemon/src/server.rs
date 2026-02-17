@@ -6,7 +6,7 @@ use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::{Stream, StreamExt};
 use tonic::{Request, Response, Status};
 use voice_controllm_proto::{
-    Empty, Event, Healthy, State,
+    Empty, Event, GetLanguageResponse, Healthy, SetLanguageRequest, State,
     voice_controllm_server::{VoiceControllm, VoiceControllmServer},
 };
 
@@ -98,6 +98,29 @@ impl VoiceControllm for VoiceControllmService {
         let stream = BroadcastStream::new(rx)
             .map(|result| result.map_err(|e| Status::internal(format!("Broadcast error: {}", e))));
         Ok(Response::new(Box::pin(stream)))
+    }
+
+    async fn set_language(
+        &self,
+        request: Request<SetLanguageRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        let lang = request.into_inner().language;
+        self.controller
+            .set_language(&lang)
+            .await
+            .map_err(Status::invalid_argument)?;
+        Ok(Response::new(Empty {}))
+    }
+
+    async fn get_language(
+        &self,
+        _request: Request<Empty>,
+    ) -> Result<Response<GetLanguageResponse>, Status> {
+        let (language, available) = self.controller.get_language_info().await;
+        Ok(Response::new(GetLanguageResponse {
+            language,
+            available_languages: available,
+        }))
     }
 }
 

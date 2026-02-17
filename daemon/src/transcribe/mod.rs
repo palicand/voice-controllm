@@ -22,4 +22,9 @@ pub trait Transcriber: Send {
     /// # Returns
     /// The transcribed text, or an error if transcription failed.
     fn transcribe(&mut self, audio: &[f32], sample_rate: u32) -> Result<String>;
+
+    /// Set the language for transcription.
+    ///
+    /// Pass `None` for automatic language detection, or `Some("en")` etc. for a specific language.
+    fn set_language(&mut self, language: Option<String>);
 }

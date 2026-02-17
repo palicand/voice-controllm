@@ -7,8 +7,8 @@ use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 use voice_controllm_proto::{Event, State, StateChange, Transcription};
 
-use crate::config::InjectionConfig;
-use crate::engine::Engine;
+use crate::config::{Config, InitialState, InjectionConfig};
+use crate::engine::{Engine, SharedLanguage};
 use crate::inject::KeystrokeInjector;
 
 /// Controller state.
@@ -48,6 +48,9 @@ pub struct Controller {
     engine: Arc<Mutex<Option<Engine>>>,
     engine_handle: Arc<RwLock<Option<EngineHandle>>>,
     injection_config: InjectionConfig,
+    initial_state: InitialState,
+    shared_language: SharedLanguage,
+    config: Arc<RwLock<Config>>,
 }
 
 impl Controller {
@@ -56,8 +59,11 @@ impl Controller {
         event_tx: EventSender,
         shutdown_tx: oneshot::Sender<()>,
         engine: Engine,
-        injection_config: InjectionConfig,
+        config: Config,
     ) -> Self {
+        let shared_language = engine.shared_language();
+        let injection_config = config.injection.clone();
+        let initial_state = config.daemon.initial_state;
         Self {
             state: Arc::new(RwLock::new(ControllerState::Initializing)),
             event_tx,
@@ -65,6 +71,9 @@ impl Controller {
             engine: Arc::new(Mutex::new(Some(engine))),
             engine_handle: Arc::new(RwLock::new(None)),
             injection_config,
+            initial_state,
+            shared_language,
+            config: Arc::new(RwLock::new(config)),
         }
     }
 
@@ -73,12 +82,21 @@ impl Controller {
         *self.state.read().await
     }
 
-    /// Mark initialization complete, transition to Paused.
+    /// Mark initialization complete, transition to configured initial state.
     pub async fn mark_ready(&self) {
-        let mut state = self.state.write().await;
-        if *state == ControllerState::Initializing {
+        {
+            let mut state = self.state.write().await;
+            if *state != ControllerState::Initializing {
+                return;
+            }
             *state = ControllerState::Paused;
             self.broadcast_state_change(ControllerState::Paused);
+        }
+
+        if self.initial_state == InitialState::Listening
+            && let Err(e) = self.start_listening().await
+        {
+            error!(error = %e, "Failed to auto-start listening after initialization");
         }
     }
 
@@ -208,6 +226,54 @@ impl Controller {
     /// Get the event sender for creating subscribers.
     pub fn event_sender(&self) -> EventSender {
         self.event_tx.clone()
+    }
+
+    /// Set the transcription language at runtime.
+    ///
+    /// Pass `"auto"` for automatic detection, or a language code like `"en"`, `"cs"`, etc.
+    /// The change takes effect on the next transcription call and is persisted to the config file.
+    pub async fn set_language(&self, language: &str) -> Result<(), String> {
+        let lang = if language == "auto" {
+            None
+        } else {
+            Some(language.to_string())
+        };
+
+        // Persist to config first so failures don't partially apply the change
+        {
+            let mut config = self.config.write().await;
+            config.model.language = language.to_string();
+            config
+                .save()
+                .map_err(|e| format!("Failed to save config: {e}"))?;
+        }
+
+        // Update shared runtime state
+        {
+            let mut shared = self
+                .shared_language
+                .lock()
+                .map_err(|e| format!("Failed to lock shared language: {e}"))?;
+            *shared = lang;
+        }
+
+        info!(language = language, "Language changed");
+        Ok(())
+    }
+
+    /// Get the current language and the list of available languages from config.
+    ///
+    /// Returns `(active_language, available_languages)`.
+    pub async fn get_language_info(&self) -> (String, Vec<String>) {
+        let active = {
+            let shared = self.shared_language.lock().ok();
+            match shared.as_deref() {
+                Some(Some(lang)) => lang.to_string(),
+                _ => "auto".to_string(),
+            }
+        };
+        let available = self.config.read().await.gui.languages.clone();
+        (active, available)
     }
 }
 

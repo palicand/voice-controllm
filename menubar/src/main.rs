@@ -11,10 +11,11 @@ use tray_icon::TrayIconEvent;
 use tray_icon::menu::MenuEvent;
 
 use bridge::{AppEvent, Command, UserEvent};
-use state::AppState;
+use state::{AppState, LanguageInfo};
 
 struct App {
     current_state: AppState,
+    language: LanguageInfo,
     tray_icon: Option<tray_icon::TrayIcon>,
     menu_items: tray::MenuItems,
     cmd_tx: mpsc::Sender<Command>,
@@ -24,9 +25,11 @@ struct App {
 impl App {
     fn new(cmd_tx: mpsc::Sender<Command>) -> Self {
         let state = AppState::Disconnected;
-        let (_menu, menu_items) = tray::build_menu(&state);
+        let language = LanguageInfo::default();
+        let (_menu, menu_items) = tray::build_menu(&state, &language);
         Self {
             current_state: state,
+            language,
             tray_icon: None,
             menu_items,
             cmd_tx,
@@ -47,7 +50,7 @@ impl App {
     }
 
     fn handle_init(&mut self) {
-        let (menu, items) = tray::build_menu(&self.current_state);
+        let (menu, items) = tray::build_menu(&self.current_state, &self.language);
         self.menu_items = items;
         self.tray_icon = Some(tray::create_tray_icon(&self.current_state, menu));
 
@@ -73,7 +76,27 @@ impl App {
                 }
                 _ => {}
             }
+        } else if let Some(code) = self.find_clicked_language(&event) {
+            let _ = self.cmd_tx.send(Command::SetLanguage(code.clone()));
+            // Keep local state in sync so rebuilds before LanguageChanged don't revert
+            self.language.active = if code.eq_ignore_ascii_case("auto") {
+                state::LanguageSelection::Auto
+            } else {
+                state::LanguageSelection::Fixed(code.clone())
+            };
+            // Immediate UI feedback: update check states
+            for (item, item_code) in &self.menu_items.language_items {
+                item.set_checked(item_code == &code);
+            }
         }
+    }
+
+    fn find_clicked_language(&self, event: &MenuEvent) -> Option<String> {
+        self.menu_items
+            .language_items
+            .iter()
+            .find(|(item, _)| event.id == *item.id())
+            .map(|(_, code)| code.clone())
     }
 
     fn handle_app_event(&mut self, event: AppEvent) -> ControlFlow {
@@ -90,16 +113,24 @@ impl App {
             }
             AppEvent::StateChanged(new_state) => {
                 self.current_state = new_state;
-                if let Some(ref ti) = self.tray_icon {
-                    let (new_menu, new_items) = tray::build_menu(&self.current_state);
-                    self.menu_items = new_items;
-                    ti.set_menu(Some(Box::new(new_menu)));
-                    ti.set_icon(Some(tray::select_icon_for_state(&self.current_state)))
-                        .expect("failed to set icon");
-                }
+                self.rebuild_menu();
+            }
+            AppEvent::LanguageChanged(info) => {
+                self.language = info;
+                self.rebuild_menu();
             }
         }
         ControlFlow::Wait
+    }
+
+    fn rebuild_menu(&mut self) {
+        if let Some(ref ti) = self.tray_icon {
+            let (new_menu, new_items) = tray::build_menu(&self.current_state, &self.language);
+            self.menu_items = new_items;
+            ti.set_menu(Some(Box::new(new_menu)));
+            ti.set_icon(Some(tray::select_icon_for_state(&self.current_state)))
+                .expect("failed to set icon");
+        }
     }
 }
 

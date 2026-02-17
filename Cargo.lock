@@ -3652,6 +3652,21 @@ name = "vcm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "image",
+ "objc2-core-foundation",
+ "tao",
+ "tokio",
+ "tracing",
+ "tray-icon",
+ "voice-controllm-common",
+ "voice-controllm-proto",
+]
+
+[[package]]
+name = "vcmctl"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
  "clap",
  "tokio",
  "tonic",
@@ -3737,21 +3752,6 @@ dependencies = [
  "voice-controllm-common",
  "voice-controllm-proto",
  "whisper-rs",
-]
-
-[[package]]
-name = "voice-controllm-menubar"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "image",
- "objc2-core-foundation",
- "tao",
- "tokio",
- "tracing",
- "tray-icon",
- "voice-controllm-common",
- "voice-controllm-proto",
 ]
 
 [[package]]

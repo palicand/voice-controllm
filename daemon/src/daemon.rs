@@ -74,7 +74,7 @@ pub async fn run_with_paths_and_config(paths: DaemonPaths, config: Config) -> Re
         event_tx.clone(),
         shutdown_tx,
         engine,
-        config.injection.clone(),
+        config.clone(),
     ));
 
     // Create gRPC service

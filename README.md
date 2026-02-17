@@ -69,23 +69,30 @@ Configuration file: `~/.config/voice-controllm/config.toml`
 
 ```toml
 [model]
-model = "whisper-base"  # whisper-tiny, whisper-base, whisper-small, whisper-medium, whisper-large-v3, whisper-large-v3-turbo
-language = "auto"       # "auto" for detection, or a specific language: "en", "english", "sk", "slovak", etc.
+model = "whisper-base"  # whisper-tiny through whisper-large-v3-turbo
+language = "auto"       # "auto" for detection, or "en", "english", "sk", etc.
 
 [latency]
-mode = "balanced"  # "fast" | "balanced" | "accurate"
-min_chunk_seconds = 1.0
-
-[logging]
-level = "info"  # error, warn, info, debug, trace (override with VCM_LOG env var)
+mode = "balanced"       # "fast" | "balanced" | "accurate"
 
 [injection]
-# Empty allowlist = inject to all apps (default)
-# With allowlist = only inject to matching apps (case-insensitive, partial match)
-allowlist = []
+allowlist = []          # Empty = all apps; ["Terminal", "kitty"] = only those apps
+
+[logging]
+level = "info"          # error, warn, info, debug, trace
 ```
 
 Models are stored in `~/.local/share/voice-controllm/models/` and download automatically from Hugging Face.
+
+See [docs/configuration.md](docs/configuration.md) for the full configuration reference with all options, model sizes, and defaults.
+
+## Documentation
+
+Generate the API documentation for developers:
+
+```bash
+cargo doc --open
+```
 
 ## Known Issues
 

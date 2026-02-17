@@ -10,6 +10,10 @@ service VoiceControllm {
 
   // Query
   rpc GetStatus(Empty) returns (Status);
+  rpc GetLanguage(Empty) returns (GetLanguageResponse);
+
+  // Settings
+  rpc SetLanguage(SetLanguageRequest) returns (Empty);
 
   // Streaming
   rpc Subscribe(Empty) returns (stream Event);
@@ -93,4 +97,13 @@ enum ErrorKind {
   ERROR_MODEL_CORRUPTED = 2;
   ERROR_MIC_ACCESS_DENIED = 3;
   ERROR_ENGINE = 4;
+}
+
+message SetLanguageRequest {
+  string language = 1;
+}
+
+message GetLanguageResponse {
+  string language = 1;
+  repeated string available_languages = 2;
 }

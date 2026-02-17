@@ -60,6 +60,10 @@ impl WhisperTranscriber {
 }
 
 impl Transcriber for WhisperTranscriber {
+    fn set_language(&mut self, language: Option<String>) {
+        self.language = language;
+    }
+
     fn transcribe(&mut self, audio: &[f32], sample_rate: u32) -> Result<String> {
         debug!(
             samples = audio.len(),

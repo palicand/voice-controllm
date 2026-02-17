@@ -6,11 +6,11 @@ use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 use voice_controllm_common::client;
 use voice_controllm_common::dirs::socket_path;
 use voice_controllm_daemon::config::{Config, SpeechModel};
-use voice_controllm_proto::{Empty, State, status::Status as StatusVariant};
+use voice_controllm_proto::{Empty, SetLanguageRequest, State, status::Status as StatusVariant};
 
 #[derive(Parser)]
-#[command(name = "vcm")]
-#[command(about = "Voice-Controllm CLI - offline voice dictation")]
+#[command(name = "vcmctl")]
+#[command(about = "Voice-Controllm CLI - offline voice dictation control")]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
@@ -32,6 +32,11 @@ enum Commands {
         #[command(subcommand)]
         action: ConfigAction,
     },
+    /// Manage transcription language
+    Language {
+        #[command(subcommand)]
+        action: LanguageAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -49,6 +54,17 @@ enum ConfigAction {
     },
     /// Show current configuration
     Show,
+}
+
+#[derive(Subcommand)]
+enum LanguageAction {
+    /// Show current language
+    Get,
+    /// Switch language (e.g. "en", "cs", "de", "auto")
+    Set {
+        /// Language code or "auto" for auto-detection
+        code: String,
+    },
 }
 
 #[derive(Clone, ValueEnum)]
@@ -96,7 +112,7 @@ async fn cmd_start() -> Result<()> {
     let daemon_path = std::env::current_exe()?
         .parent()
         .context("No parent directory")?
-        .join("voice-controllm-daemon");
+        .join("vcmd");
 
     if !daemon_path.exists() {
         anyhow::bail!("Daemon binary not found at: {}", daemon_path.display());
@@ -395,6 +411,56 @@ async fn cmd_toggle() -> Result<()> {
     Ok(())
 }
 
+async fn cmd_language_get() -> Result<()> {
+    let sock_path = socket_path()?;
+
+    if !client::is_daemon_running(&sock_path).await {
+        println!("Daemon not running");
+        return Ok(());
+    }
+
+    let mut client = client::connect(&sock_path).await?;
+    let response = client
+        .get_language(Empty {})
+        .await
+        .context("Failed to get language")?;
+
+    let lang = response.into_inner();
+    println!("Language: {}", lang.language);
+
+    if !lang.available_languages.is_empty() {
+        println!("Available: {}", lang.available_languages.join(", "));
+    }
+
+    Ok(())
+}
+
+async fn cmd_language_set(code: String) -> Result<()> {
+    let sock_path = socket_path()?;
+
+    if !client::is_daemon_running(&sock_path).await {
+        println!("Daemon not running");
+        return Ok(());
+    }
+
+    let mut client = client::connect(&sock_path).await?;
+    client
+        .set_language(SetLanguageRequest { language: code })
+        .await
+        .context("Failed to set language")?;
+
+    // Echo the server-confirmed language rather than user input
+    let lang = client
+        .get_language(Empty {})
+        .await
+        .context("Failed to get language")?
+        .into_inner();
+
+    println!("Language set to: {}", lang.language);
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::registry()
@@ -409,6 +475,10 @@ async fn main() -> Result<()> {
         Commands::Stop => cmd_stop().await?,
         Commands::Status => cmd_status().await?,
         Commands::Toggle => cmd_toggle().await?,
+        Commands::Language { action } => match action {
+            LanguageAction::Get => cmd_language_get().await?,
+            LanguageAction::Set { code } => cmd_language_set(code).await?,
+        },
         Commands::Config { action } => match action {
             ConfigAction::Path => {
                 let path = Config::config_path()?;

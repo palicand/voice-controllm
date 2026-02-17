@@ -9,6 +9,6 @@ fn test_service_creation() {
     let (shutdown_tx, _shutdown_rx) = oneshot::channel();
     let config = Config::default();
     let engine = Engine::new(config.clone()).unwrap();
-    let controller = Arc::new(Controller::new(tx, shutdown_tx, engine, config.injection));
+    let controller = Arc::new(Controller::new(tx, shutdown_tx, engine, config));
     let _service = VoiceControllmService::new(controller);
 }

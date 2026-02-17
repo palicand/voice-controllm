@@ -14,6 +14,27 @@ pub struct Config {
     pub latency: LatencyConfig,
     pub injection: InjectionConfig,
     pub logging: LoggingConfig,
+    pub gui: GuiConfig,
+    pub daemon: DaemonConfig,
+}
+
+/// General daemon behavior configuration.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DaemonConfig {
+    /// State to enter after model initialization completes.
+    pub initial_state: InitialState,
+}
+
+/// State the daemon should enter after initialization.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum InitialState {
+    /// Start listening immediately after initialization.
+    #[default]
+    Listening,
+    /// Stay paused after initialization — user must toggle manually.
+    Paused,
 }
 
 /// Configuration for the speech recognition model.
@@ -92,6 +113,14 @@ pub enum LogLevel {
     Info,
     Debug,
     Trace,
+}
+
+/// Configuration for the menu bar GUI.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GuiConfig {
+    /// Language codes to display in the menu bar for switching.
+    pub languages: Vec<String>,
 }
 
 impl LogLevel {
