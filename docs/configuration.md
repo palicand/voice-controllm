@@ -2,7 +2,7 @@
 
 voice-controllm is configured via a TOML file at:
 
-```
+```text
 ~/.config/voice-controllm/config.toml
 ```
 
@@ -14,7 +14,7 @@ The XDG base directory spec is respected: set `$XDG_CONFIG_HOME` to override `~/
 
 Speech recognition models are stored in:
 
-```
+```text
 ~/.local/share/voice-controllm/models/
 ```
 
