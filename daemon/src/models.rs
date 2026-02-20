@@ -215,7 +215,7 @@ pub struct ModelManager {
 impl ModelManager {
     /// Create a new ModelManager using the default models directory.
     ///
-    /// Default: `~/.local/share/voice-controllm/models/` (or `$XDG_DATA_HOME/voice-controllm/models/`)
+    /// Default: `~/.local/share/vcm/models/` (or `$XDG_DATA_HOME/vcm/models/`)
     pub fn new() -> Result<Self> {
         let models_dir = crate::dirs::data_dir()?.join("models");
         Ok(Self { models_dir })

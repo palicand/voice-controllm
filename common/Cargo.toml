@@ -1,10 +1,10 @@
 [package]
-name = "voice-controllm-common"
+name = "vcm-common"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Shared utilities for voice-controllm"
+description = "Shared utilities for VCM"
 
 [lints]
 workspace = true
@@ -15,5 +15,5 @@ hyper-util = { version = "0.1", features = ["tokio"] }
 tokio = { version = "1.49", features = ["net"] }
 tonic = "0.12"
 tower = "0.5"
-voice-controllm-proto = { version = "0.1.0", path = "../proto" }
+vcm-proto = { version = "0.1.0", path = "../proto" }
 xdg = "3.0"

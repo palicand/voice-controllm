@@ -1,4 +1,4 @@
-//! gRPC client for communicating with the voice-controllm daemon.
+//! gRPC client for communicating with the VCM daemon.
 
 use std::path::Path;
 
@@ -7,11 +7,11 @@ use hyper_util::rt::TokioIo;
 use tokio::net::UnixStream;
 use tonic::transport::{Channel, Endpoint, Uri};
 use tower::service_fn;
-use voice_controllm_proto::Event;
-use voice_controllm_proto::voice_controllm_client::VoiceControllmClient;
+use vcm_proto::Event;
+use vcm_proto::vcm_client::VcmClient;
 
 /// Connect to daemon via Unix socket.
-pub async fn connect(socket_path: impl AsRef<Path>) -> Result<VoiceControllmClient<Channel>> {
+pub async fn connect(socket_path: impl AsRef<Path>) -> Result<VcmClient<Channel>> {
     let socket_path = socket_path.as_ref().to_path_buf();
 
     let channel = Endpoint::try_from("http://[::]:50051")?
@@ -25,15 +25,13 @@ pub async fn connect(socket_path: impl AsRef<Path>) -> Result<VoiceControllmClie
         .await
         .context("Failed to connect to daemon")?;
 
-    Ok(VoiceControllmClient::new(channel))
+    Ok(VcmClient::new(channel))
 }
 
 /// Subscribe to daemon events.
-pub async fn subscribe(
-    client: &mut VoiceControllmClient<Channel>,
-) -> Result<tonic::Streaming<Event>> {
+pub async fn subscribe(client: &mut VcmClient<Channel>) -> Result<tonic::Streaming<Event>> {
     let response = client
-        .subscribe(voice_controllm_proto::Empty {})
+        .subscribe(vcm_proto::Empty {})
         .await
         .context("Failed to subscribe to events")?;
     Ok(response.into_inner())

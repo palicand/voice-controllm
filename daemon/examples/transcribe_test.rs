@@ -1,6 +1,6 @@
 //! Test the full transcription pipeline.
 //!
-//! Run with: cargo run -p voice-controllm-daemon --example transcribe_test
+//! Run with: cargo run -p vcm-daemon --example transcribe_test
 //!
 //! This example runs the engine and prints transcriptions to stdout.
 //! Press Ctrl+C to stop.
@@ -14,8 +14,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::signal;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
-use voice_controllm_daemon::config::Config;
-use voice_controllm_daemon::engine::Engine;
+use vcm_daemon::config::Config;
+use vcm_daemon::engine::Engine;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

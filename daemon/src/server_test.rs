@@ -10,5 +10,5 @@ fn test_service_creation() {
     let config = Config::default();
     let engine = Engine::new(config.clone()).unwrap();
     let controller = Arc::new(Controller::new(tx, shutdown_tx, engine, config));
-    let _service = VoiceControllmService::new(controller);
+    let _service = VcmService::new(controller);
 }

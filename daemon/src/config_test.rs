@@ -109,9 +109,9 @@ fn test_config_paths() {
     let data_dir = Config::data_dir().unwrap();
     let models_dir = Config::models_dir().unwrap();
 
-    assert!(config_dir.ends_with("voice-controllm"));
+    assert!(config_dir.ends_with("vcm"));
     assert!(config_path.ends_with("config.toml"));
-    assert!(data_dir.ends_with("voice-controllm"));
+    assert!(data_dir.ends_with("vcm"));
     assert!(models_dir.ends_with("models"));
 
     // Verify parent relationships

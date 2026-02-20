@@ -96,7 +96,7 @@ pub fn create_tray_icon(state: &AppState, menu: Menu) -> TrayIcon {
 
     let builder = TrayIconBuilder::new()
         .with_menu(Box::new(menu))
-        .with_tooltip("Voice-Controllm")
+        .with_tooltip("VCM")
         .with_icon(icon)
         .with_menu_on_left_click(true);
 

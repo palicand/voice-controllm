@@ -1,4 +1,4 @@
-//! Audio capture and processing for voice-controllm daemon.
+//! Audio capture and processing for VCM daemon.
 //!
 //! Handles microphone input capture and resampling to 16kHz mono for speech recognition.
 

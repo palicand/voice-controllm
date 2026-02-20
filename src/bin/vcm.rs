@@ -1,3 +1,3 @@
 fn main() {
-    vcm::run()
+    vcm_menubar::run()
 }

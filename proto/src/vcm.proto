@@ -1,7 +1,7 @@
 syntax = "proto3";
-package voice_controllm;
+package vcm;
 
-service VoiceControllm {
+service Vcm {
   // Control
   rpc StartListening(Empty) returns (Empty);
   rpc StopListening(Empty) returns (Empty);

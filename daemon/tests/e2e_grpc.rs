@@ -8,16 +8,16 @@
 
 use std::time::Duration;
 
-use voice_controllm_daemon::config::Config;
-use voice_controllm_daemon::daemon::{DaemonPaths, run_with_paths_and_config};
-use voice_controllm_proto::voice_controllm_client::VoiceControllmClient;
-use voice_controllm_proto::{Empty, State, status::Status as StatusVariant};
+use vcm_daemon::config::Config;
+use vcm_daemon::daemon::{DaemonPaths, run_with_paths_and_config};
+use vcm_proto::vcm_client::VcmClient;
+use vcm_proto::{Empty, State, status::Status as StatusVariant};
 
 /// Connect to the daemon, retrying until the socket is ready.
 async fn connect_with_retry(
     socket_path: &std::path::Path,
     timeout: Duration,
-) -> VoiceControllmClient<tonic::transport::Channel> {
+) -> VcmClient<tonic::transport::Channel> {
     let start = std::time::Instant::now();
     loop {
         if start.elapsed() > timeout {
@@ -35,13 +35,13 @@ async fn connect_with_retry(
             }))
             .await;
         match result {
-            Ok(channel) => return VoiceControllmClient::new(channel),
+            Ok(channel) => return VcmClient::new(channel),
             Err(_) => tokio::time::sleep(Duration::from_millis(50)).await,
         }
     }
 }
 
-fn extract_state(status: voice_controllm_proto::Status) -> State {
+fn extract_state(status: vcm_proto::Status) -> State {
     match status.status {
         Some(StatusVariant::Healthy(h)) => State::try_from(h.state).unwrap(),
         other => panic!("Expected Healthy status, got: {:?}", other),

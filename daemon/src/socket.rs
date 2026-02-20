@@ -6,7 +6,7 @@ use tokio::net::UnixListener;
 
 /// Get the daemon socket path.
 pub fn socket_path() -> Result<PathBuf> {
-    voice_controllm_common::dirs::socket_path()
+    vcm_common::dirs::socket_path()
 }
 
 /// Get the daemon PID file path.

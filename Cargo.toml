@@ -1,5 +1,5 @@
 [package]
-name = "voice-controllm"
+name = "vcm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -21,9 +21,9 @@ path = "src/bin/vcm.rs"
 [dependencies]
 anyhow = "1.0"
 tokio = { version = "1.49", features = ["rt-multi-thread", "macros"] }
-vcm = { path = "menubar" }
+vcm-daemon = { path = "daemon" }
+vcm-menubar = { path = "menubar" }
 vcmctl = { path = "cli" }
-voice-controllm-daemon = { path = "daemon" }
 
 [lints]
 workspace = true

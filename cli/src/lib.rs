@@ -3,10 +3,10 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
-use voice_controllm_common::client;
-use voice_controllm_common::dirs::socket_path;
-use voice_controllm_daemon::config::{Config, SpeechModel};
-use voice_controllm_proto::{Empty, SetLanguageRequest, State, status::Status as StatusVariant};
+use vcm_common::client;
+use vcm_common::dirs::socket_path;
+use vcm_daemon::config::{Config, SpeechModel};
+use vcm_proto::{Empty, SetLanguageRequest, State, status::Status as StatusVariant};
 
 #[derive(Parser)]
 #[command(name = "vcmctl")]
@@ -102,7 +102,7 @@ async fn cmd_start() -> Result<()> {
     let sock_path = socket_path()?;
 
     if client::is_daemon_running(&sock_path).await {
-        let pid_path = voice_controllm_daemon::socket::pid_path()?;
+        let pid_path = vcm_daemon::socket::pid_path()?;
         let pid = std::fs::read_to_string(&pid_path).unwrap_or_else(|_| "unknown".to_string());
         println!("Daemon already running (PID: {})", pid.trim());
         return Ok(());
@@ -141,7 +141,7 @@ async fn cmd_start() -> Result<()> {
     println!();
 
     if !client::is_daemon_running(&sock_path).await {
-        let log_path = voice_controllm_daemon::socket::log_path()?;
+        let log_path = vcm_daemon::socket::log_path()?;
         eprintln!("Daemon failed to start. Check logs: {}", log_path.display());
         std::process::exit(1);
     }
@@ -153,9 +153,7 @@ async fn cmd_start() -> Result<()> {
 
 /// Poll daemon status until it leaves Initializing, showing progress from event stream.
 async fn wait_for_ready(
-    grpc_client: &mut voice_controllm_proto::voice_controllm_client::VoiceControllmClient<
-        tonic::transport::Channel,
-    >,
+    grpc_client: &mut vcm_proto::vcm_client::VcmClient<tonic::transport::Channel>,
 ) -> Result<()> {
     // Check if already past initialization
     if !is_initializing(grpc_client).await? {
@@ -196,9 +194,7 @@ async fn wait_for_ready(
 }
 
 async fn is_initializing(
-    grpc_client: &mut voice_controllm_proto::voice_controllm_client::VoiceControllmClient<
-        tonic::transport::Channel,
-    >,
+    grpc_client: &mut vcm_proto::vcm_client::VcmClient<tonic::transport::Channel>,
 ) -> Result<bool> {
     let status = grpc_client
         .get_status(Empty {})
@@ -214,7 +210,7 @@ async fn is_initializing(
 }
 
 fn print_daemon_ready() -> Result<()> {
-    let pid_path = voice_controllm_daemon::socket::pid_path()?;
+    let pid_path = vcm_daemon::socket::pid_path()?;
     let pid = std::fs::read_to_string(&pid_path).unwrap_or_else(|_| "unknown".to_string());
     println!("Daemon ready (PID: {})", pid.trim());
     Ok(())
@@ -222,13 +218,11 @@ fn print_daemon_ready() -> Result<()> {
 
 /// Handle a single init event. Returns true if initialization is complete.
 async fn handle_init_event(
-    event: voice_controllm_proto::Event,
-    grpc_client: &mut voice_controllm_proto::voice_controllm_client::VoiceControllmClient<
-        tonic::transport::Channel,
-    >,
+    event: vcm_proto::Event,
+    grpc_client: &mut vcm_proto::vcm_client::VcmClient<tonic::transport::Channel>,
 ) -> Result<bool> {
-    use voice_controllm_proto::event::Event as EventType;
-    use voice_controllm_proto::init_progress::Progress;
+    use vcm_proto::event::Event as EventType;
+    use vcm_proto::init_progress::Progress;
 
     match event.event {
         Some(EventType::InitProgress(progress)) => match progress.progress {
@@ -264,22 +258,20 @@ async fn handle_init_event(
 }
 
 async fn handle_daemon_error(
-    err: voice_controllm_proto::DaemonError,
-    grpc_client: &mut voice_controllm_proto::voice_controllm_client::VoiceControllmClient<
-        tonic::transport::Channel,
-    >,
+    err: vcm_proto::DaemonError,
+    grpc_client: &mut vcm_proto::vcm_client::VcmClient<tonic::transport::Channel>,
 ) -> Result<()> {
-    let kind = voice_controllm_proto::ErrorKind::try_from(err.kind)
-        .unwrap_or(voice_controllm_proto::ErrorKind::ErrorUnknown);
+    let kind =
+        vcm_proto::ErrorKind::try_from(err.kind).unwrap_or(vcm_proto::ErrorKind::ErrorUnknown);
     match kind {
-        voice_controllm_proto::ErrorKind::ErrorModelMissing => {
+        vcm_proto::ErrorKind::ErrorModelMissing => {
             println!("Model '{}' not found. Downloading...", err.model_name);
             grpc_client
                 .download_models(Empty {})
                 .await
                 .context("Failed to trigger model download")?;
         }
-        voice_controllm_proto::ErrorKind::ErrorModelCorrupted => {
+        vcm_proto::ErrorKind::ErrorModelCorrupted => {
             println!(
                 "Model '{}' appears corrupted: {}. Re-downloading...",
                 err.model_name, err.message

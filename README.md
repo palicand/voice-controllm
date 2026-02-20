@@ -1,4 +1,4 @@
-# Voice-Controllm
+# VCM
 
 Offline voice dictation utility for macOS accessibility. Designed to replace Apple Voice Control with a more accurate, configurable solution.
 
@@ -40,7 +40,7 @@ Offline voice dictation utility for macOS accessibility. Designed to replace App
 
 ```bash
 # From crates.io (once published)
-cargo install voice-controllm
+cargo install vcm
 
 # From source
 cargo install --path .
@@ -74,7 +74,7 @@ On first launch, `vcmctl start` downloads the required models (~150 MB for whisp
 
 ## Configuration
 
-Configuration file: `~/.config/voice-controllm/config.toml`
+Configuration file: `~/.config/vcm/config.toml`
 
 ```toml
 [model]
@@ -91,7 +91,7 @@ allowlist = []          # Empty = all apps; ["Terminal", "kitty"] = only those a
 level = "info"          # error, warn, info, debug, trace
 ```
 
-Models are stored in `~/.local/share/voice-controllm/models/` and download automatically from Hugging Face.
+Models are stored in `~/.local/share/vcm/models/` and download automatically from Hugging Face.
 
 See [docs/configuration.md](docs/configuration.md) for the full configuration reference with all options, model sizes, and defaults.
 
@@ -109,7 +109,7 @@ cargo doc --open
 
 ## Logging
 
-Daemon logs are written to `~/.local/state/voice-controllm/daemon.log`. Set the log level in config or override with `VCM_LOG`:
+Daemon logs are written to `~/.local/state/vcm/daemon.log`. Set the log level in config or override with `VCM_LOG`:
 
 ```bash
 VCM_LOG=debug vcmctl start

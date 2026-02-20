@@ -1,10 +1,10 @@
 [package]
-name = "vcm"
+name = "vcm-menubar"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "System tray app for voice-controllm — menu bar control and status"
+description = "System tray app for VCM — menu bar control and status"
 
 [lints]
 workspace = true
@@ -16,8 +16,8 @@ tao = "0.34"
 tokio = { version = "1.49", features = ["rt-multi-thread", "macros", "time", "signal"] }
 tracing = "0.1"
 tray-icon = "0.21"
-voice-controllm-common = { version = "0.1.0", path = "../common" }
-voice-controllm-proto = { version = "0.1.0", path = "../proto" }
+vcm-common = { version = "0.1.0", path = "../common" }
+vcm-proto = { version = "0.1.0", path = "../proto" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-core-foundation = { version = "0.3", default-features = false, features = ["std", "CFRunLoop"] }

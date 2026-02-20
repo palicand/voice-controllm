@@ -95,8 +95,8 @@ async fn test_mark_ready_broadcasts_event() {
 
     let event = event_rx.recv().await.unwrap();
     match event.event {
-        Some(voice_controllm_proto::event::Event::StateChange(change)) => match change.status {
-            Some(voice_controllm_proto::state_change::Status::NewState(state)) => {
+        Some(vcm_proto::event::Event::StateChange(change)) => match change.status {
+            Some(vcm_proto::state_change::Status::NewState(state)) => {
                 assert_eq!(state, State::Paused.into());
             }
             _ => panic!("Expected NewState"),
