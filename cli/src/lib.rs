@@ -504,7 +504,7 @@ pub async fn run() -> Result<()> {
                 let path = Config::config_path()?;
                 if !path.exists() {
                     println!("No config file found at: {}", path.display());
-                    println!("Using defaults. Run 'vcm config init' to create one.");
+                    println!("Using defaults. Run 'vcmctl config init' to create one.");
                     println!();
                 }
 

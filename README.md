@@ -17,12 +17,12 @@ Offline voice dictation utility for macOS accessibility. Designed to replace App
 
 ```
 +-------------------+     Unix Socket/gRPC     +------------------------+
-|   CLI (vcm)       |<------------------------>|       Daemon           |
+|   CLI (vcmctl)    |<------------------------>|     Daemon (vcmd)      |
 +-------------------+                          |                        |
                                                |  Audio (cpal)          |
 +-------------------+     Unix Socket/gRPC     |       |                |
 |  Menu Bar App     |<------------------------>|  VAD (Silero)          |
-|  (Tauri, planned) |                          |       |                |
+|  (vcm)            |                          |       |                |
 +-------------------+                          |  Whisper (CoreML)      |
                                                |       |                |
                                                |  Keystroke Injection   |
@@ -36,32 +36,41 @@ Offline voice dictation utility for macOS accessibility. Designed to replace App
 - Microphone permissions (grant in System Settings > Privacy & Security > Microphone)
 - Accessibility permissions for keystroke injection (grant in System Settings > Privacy & Security > Accessibility)
 
-## Building
+## Installation
 
 ```bash
+# From crates.io (once published)
+cargo install voice-controllm
+
+# From source
+cargo install --path .
+
+# Or just build locally
 cargo build --release
 ```
+
+This installs three binaries: `vcmd` (daemon), `vcmctl` (CLI), and `vcm` (menu bar app).
 
 ## Quick Start
 
 ```bash
 # Initialize config (optional - defaults work out of the box)
-vcm config init
+vcmctl config init
 
 # Start the daemon (downloads models on first run)
-vcm start
+vcmctl start
 
 # Toggle listening on/off
-vcm toggle
+vcmctl toggle
 
 # Check current state
-vcm status
+vcmctl status
 
 # Stop the daemon
-vcm stop
+vcmctl stop
 ```
 
-On first launch, `vcm start` downloads the required models (~150 MB for whisper-base) and shows progress. Subsequent starts are fast.
+On first launch, `vcmctl start` downloads the required models (~150 MB for whisper-base) and shows progress. Subsequent starts are fast.
 
 ## Configuration
 
@@ -103,7 +112,7 @@ cargo doc --open
 Daemon logs are written to `~/.local/state/voice-controllm/daemon.log`. Set the log level in config or override with `VCM_LOG`:
 
 ```bash
-VCM_LOG=debug vcm start
+VCM_LOG=debug vcmctl start
 ```
 
 ## License
