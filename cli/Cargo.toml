@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "CLI for voice-controllm — start/stop daemon, configure settings"
+description = "CLI for VCM — start/stop daemon, configure settings"
 
 [lints]
 workspace = true
@@ -16,6 +16,6 @@ tokio = { version = "1.49.0", features = ["rt-multi-thread", "macros"] }
 tonic = "0.12"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
-voice-controllm-common = { version = "0.1.0", path = "../common" }
-voice-controllm-daemon = { version = "0.1.0", path = "../daemon" }
-voice-controllm-proto = { version = "0.1.0", path = "../proto" }
+vcm-common = { version = "0.1.0", path = "../common" }
+vcm-daemon = { version = "0.1.0", path = "../daemon" }
+vcm-proto = { version = "0.1.0", path = "../proto" }

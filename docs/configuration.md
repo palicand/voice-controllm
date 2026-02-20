@@ -1,9 +1,9 @@
 # Configuration Reference
 
-voice-controllm is configured via a TOML file at:
+vcm is configured via a TOML file at:
 
 ```text
-~/.config/voice-controllm/config.toml
+~/.config/vcm/config.toml
 ```
 
 If the file does not exist, all settings use their defaults. You can generate a default config with `vcmctl config init`.
@@ -15,7 +15,7 @@ The XDG base directory spec is respected: set `$XDG_CONFIG_HOME` to override `~/
 Speech recognition models are stored in:
 
 ```text
-~/.local/share/voice-controllm/models/
+~/.local/share/vcm/models/
 ```
 
 Models download automatically from Hugging Face on first use. Downloads support resume if interrupted. On macOS, CoreML encoder models are also downloaded and extracted alongside the main model for Apple Silicon acceleration.
@@ -116,7 +116,7 @@ allowlist = ["Terminal", "kitty", "IntelliJ IDEA"]
 
 ### `level`
 
-Sets the daemon log verbosity. Logs are written to `~/.local/state/voice-controllm/daemon.log`.
+Sets the daemon log verbosity. Logs are written to `~/.local/state/vcm/daemon.log`.
 
 | Level   | Description                              |
 |---------|------------------------------------------|

@@ -1,4 +1,4 @@
-use voice_controllm_proto::State as ProtoState;
+use vcm_proto::State as ProtoState;
 
 /// The active language selection: either automatic detection or a specific language.
 #[derive(Debug, Clone, PartialEq, Default)]

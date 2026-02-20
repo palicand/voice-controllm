@@ -1,5 +1,5 @@
 //! Test VAD with live microphone input.
-//! Run with: cargo run -p voice-controllm-daemon --example vad_test
+//! Run with: cargo run -p vcm-daemon --example vad_test
 //!
 //! Requires the Silero VAD model. Download from:
 //! https://github.com/snakers4/silero-vad/raw/master/src/silero_vad/data/silero_vad.onnx
@@ -15,8 +15,8 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tracing_subscriber::EnvFilter;
-use voice_controllm_daemon::audio::{AudioCapture, AudioResampler, TARGET_SAMPLE_RATE};
-use voice_controllm_daemon::vad::{VAD_SAMPLE_RATE, VadConfig, VadEvent, VoiceActivityDetector};
+use vcm_daemon::audio::{AudioCapture, AudioResampler, TARGET_SAMPLE_RATE};
+use vcm_daemon::vad::{VAD_SAMPLE_RATE, VadConfig, VadEvent, VoiceActivityDetector};
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()

@@ -134,7 +134,7 @@ impl App {
     }
 }
 
-fn main() {
+pub fn run() {
     icons::validate();
 
     let mut event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();

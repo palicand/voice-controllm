@@ -1,10 +1,10 @@
 [package]
-name = "voice-controllm-proto"
+name = "vcm-proto"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "gRPC protocol definitions for voice-controllm"
+description = "gRPC protocol definitions for VCM"
 
 [lints]
 workspace = true

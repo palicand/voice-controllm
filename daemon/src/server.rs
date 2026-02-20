@@ -5,32 +5,32 @@ use std::sync::Arc;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::{Stream, StreamExt};
 use tonic::{Request, Response, Status};
-use voice_controllm_proto::{
+use vcm_proto::{
     Empty, Event, GetLanguageResponse, Healthy, SetLanguageRequest, State,
-    voice_controllm_server::{VoiceControllm, VoiceControllmServer},
+    vcm_server::{Vcm, VcmServer},
 };
 
 use crate::controller::{Controller, ControllerState};
 
 /// gRPC service implementation.
-pub struct VoiceControllmService {
+pub struct VcmService {
     controller: Arc<Controller>,
 }
 
-impl VoiceControllmService {
+impl VcmService {
     /// Create a new service with the given controller.
     pub fn new(controller: Arc<Controller>) -> Self {
         Self { controller }
     }
 
     /// Create the tonic server.
-    pub fn into_server(self) -> VoiceControllmServer<Self> {
-        VoiceControllmServer::new(self)
+    pub fn into_server(self) -> VcmServer<Self> {
+        VcmServer::new(self)
     }
 }
 
 #[tonic::async_trait]
-impl VoiceControllm for VoiceControllmService {
+impl Vcm for VcmService {
     async fn start_listening(&self, _request: Request<Empty>) -> Result<Response<Empty>, Status> {
         self.controller
             .start_listening()
@@ -72,7 +72,7 @@ impl VoiceControllm for VoiceControllmService {
     async fn get_status(
         &self,
         _request: Request<Empty>,
-    ) -> Result<Response<voice_controllm_proto::Status>, Status> {
+    ) -> Result<Response<vcm_proto::Status>, Status> {
         let state = self.controller.state().await;
         let proto_state = match state {
             ControllerState::Initializing => State::Initializing,
@@ -80,8 +80,8 @@ impl VoiceControllm for VoiceControllmService {
             ControllerState::Listening => State::Listening,
             ControllerState::Paused => State::Paused,
         };
-        let status = voice_controllm_proto::Status {
-            status: Some(voice_controllm_proto::status::Status::Healthy(Healthy {
+        let status = vcm_proto::Status {
+            status: Some(vcm_proto::status::Status::Healthy(Healthy {
                 state: proto_state.into(),
             })),
         };

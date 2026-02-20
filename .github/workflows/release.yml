@@ -27,15 +27,15 @@ jobs:
       - name: Strip binaries
         run: |
           strip target/release/vcm
+          strip target/release/vcmctl
           strip target/release/vcmd
-          strip target/release/vcm-menubar
       - name: Package
         run: |
           VERSION=${GITHUB_REF_NAME}
-          tar czf voice-controllm-${VERSION}-aarch64-apple-darwin.tar.gz \
-            -C target/release vcm vcmd vcm-menubar
+          tar czf vcm-${VERSION}-aarch64-apple-darwin.tar.gz \
+            -C target/release vcm vcmctl vcmd
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: voice-controllm-*.tar.gz
+          files: vcm-*.tar.gz
           generate_release_notes: true

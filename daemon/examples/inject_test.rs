@@ -1,6 +1,6 @@
 //! Test keystroke injection with the transcription pipeline.
 //!
-//! Run with: cargo run -p voice-controllm-daemon --example inject_test
+//! Run with: cargo run -p vcm-daemon --example inject_test
 //!
 //! This example runs the engine and injects transcriptions as keystrokes.
 //! Press Ctrl+C to stop.
@@ -19,9 +19,9 @@ use tokio::signal;
 use tokio_util::sync::CancellationToken;
 use tracing::error;
 use tracing_subscriber::EnvFilter;
-use voice_controllm_daemon::config::Config;
-use voice_controllm_daemon::engine::Engine;
-use voice_controllm_daemon::inject::KeystrokeInjector;
+use vcm_daemon::config::Config;
+use vcm_daemon::engine::Engine;
+use vcm_daemon::inject::KeystrokeInjector;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

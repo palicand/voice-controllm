@@ -5,7 +5,7 @@ use tokio::sync::{Mutex, RwLock, broadcast, oneshot};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
-use voice_controllm_proto::{Event, State, StateChange, Transcription};
+use vcm_proto::{Event, State, StateChange, Transcription};
 
 use crate::config::{Config, InitialState, InjectionConfig};
 use crate::engine::{Engine, SharedLanguage};
@@ -198,13 +198,11 @@ impl Controller {
     /// Broadcast a state change event.
     fn broadcast_state_change(&self, new_state: ControllerState) {
         let event = Event {
-            event: Some(voice_controllm_proto::event::Event::StateChange(
-                StateChange {
-                    status: Some(voice_controllm_proto::state_change::Status::NewState(
-                        State::from(new_state).into(),
-                    )),
-                },
-            )),
+            event: Some(vcm_proto::event::Event::StateChange(StateChange {
+                status: Some(vcm_proto::state_change::Status::NewState(
+                    State::from(new_state).into(),
+                )),
+            })),
         };
         let _ = self.event_tx.send(event);
     }
@@ -212,9 +210,9 @@ impl Controller {
     /// Broadcast an error event.
     fn broadcast_error(&self, message: &str) {
         let event = Event {
-            event: Some(voice_controllm_proto::event::Event::DaemonError(
-                voice_controllm_proto::DaemonError {
-                    kind: voice_controllm_proto::ErrorKind::ErrorEngine.into(),
+            event: Some(vcm_proto::event::Event::DaemonError(
+                vcm_proto::DaemonError {
+                    kind: vcm_proto::ErrorKind::ErrorEngine.into(),
                     message: message.to_string(),
                     model_name: String::new(),
                 },
@@ -295,13 +293,11 @@ async fn run_engine_task(
                     }
                     // Broadcast transcription event
                     let event = Event {
-                        event: Some(voice_controllm_proto::event::Event::Transcription(
-                            Transcription {
-                                text: text.to_string(),
-                                confidence: 0.0,
-                                is_partial: false,
-                            },
-                        )),
+                        event: Some(vcm_proto::event::Event::Transcription(Transcription {
+                            text: text.to_string(),
+                            confidence: 0.0,
+                            is_partial: false,
+                        })),
                     };
                     let _ = tx.send(event);
                 })

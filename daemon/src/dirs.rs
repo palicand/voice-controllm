@@ -1,5 +1,5 @@
-//! XDG directory utilities for voice-controllm.
+//! XDG directory utilities for VCM.
 //!
-//! Re-exported from `voice-controllm-common` for use within the daemon crate.
+//! Re-exported from `VCM-common` for use within the daemon crate.
 
-pub use voice_controllm_common::dirs::*;
+pub use vcm_common::dirs::*;

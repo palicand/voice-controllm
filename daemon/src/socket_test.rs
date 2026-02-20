@@ -3,14 +3,14 @@ use super::*;
 #[test]
 fn test_socket_path_in_xdg_state() {
     let path = socket_path().unwrap();
-    assert!(path.to_string_lossy().contains("voice-controllm"));
+    assert!(path.to_string_lossy().contains("vcm"));
     assert!(path.to_string_lossy().ends_with("daemon.sock"));
 }
 
 #[test]
 fn test_pid_path_in_xdg_state() {
     let path = pid_path().unwrap();
-    assert!(path.to_string_lossy().contains("voice-controllm"));
+    assert!(path.to_string_lossy().contains("vcm"));
     assert!(path.to_string_lossy().ends_with("daemon.pid"));
 }
 

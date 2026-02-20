@@ -3652,14 +3652,82 @@ name = "vcm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "tokio",
+ "vcm-daemon",
+ "vcm-menubar",
+ "vcmctl",
+]
+
+[[package]]
+name = "vcm-common"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "hyper-util",
+ "tokio",
+ "tonic",
+ "tower 0.5.3",
+ "vcm-proto",
+ "xdg",
+]
+
+[[package]]
+name = "vcm-daemon"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-stream",
+ "audioadapter-buffers",
+ "cpal",
+ "ctrlc",
+ "enigo",
+ "futures-util",
+ "hound",
+ "hyper",
+ "hyper-util",
+ "indicatif",
+ "ndarray",
+ "ort",
+ "reqwest",
+ "rubato",
+ "serde",
+ "tempfile",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "toml",
+ "tonic",
+ "tower 0.5.3",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+ "vcm-common",
+ "vcm-proto",
+ "whisper-rs",
+]
+
+[[package]]
+name = "vcm-menubar"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
  "image",
  "objc2-core-foundation",
  "tao",
  "tokio",
  "tracing",
  "tray-icon",
- "voice-controllm-common",
- "voice-controllm-proto",
+ "vcm-common",
+ "vcm-proto",
+]
+
+[[package]]
+name = "vcm-proto"
+version = "0.1.0"
+dependencies = [
+ "prost",
+ "tonic",
+ "tonic-build",
 ]
 
 [[package]]
@@ -3672,9 +3740,9 @@ dependencies = [
  "tonic",
  "tracing",
  "tracing-subscriber",
- "voice-controllm-common",
- "voice-controllm-daemon",
- "voice-controllm-proto",
+ "vcm-common",
+ "vcm-daemon",
+ "vcm-proto",
 ]
 
 [[package]]
@@ -3704,63 +3772,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.114",
-]
-
-[[package]]
-name = "voice-controllm-common"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "hyper-util",
- "tokio",
- "tonic",
- "tower 0.5.3",
- "voice-controllm-proto",
- "xdg",
-]
-
-[[package]]
-name = "voice-controllm-daemon"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-stream",
- "audioadapter-buffers",
- "cpal",
- "ctrlc",
- "enigo",
- "futures-util",
- "hound",
- "hyper",
- "hyper-util",
- "indicatif",
- "ndarray",
- "ort",
- "reqwest",
- "rubato",
- "serde",
- "tempfile",
- "tokio",
- "tokio-stream",
- "tokio-util",
- "toml",
- "tonic",
- "tower 0.5.3",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
- "voice-controllm-common",
- "voice-controllm-proto",
- "whisper-rs",
-]
-
-[[package]]
-name = "voice-controllm-proto"
-version = "0.1.0"
-dependencies = [
- "prost",
- "tonic",
- "tonic-build",
 ]
 
 [[package]]

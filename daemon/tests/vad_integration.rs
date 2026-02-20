@@ -1,6 +1,6 @@
 //! Integration tests for VAD that require the model and test audio files.
 
-use voice_controllm_daemon::vad::{
+use vcm_daemon::vad::{
     VAD_CHUNK_SIZES, VAD_SAMPLE_RATE, VadConfig, VadEvent, VoiceActivityDetector,
 };
 

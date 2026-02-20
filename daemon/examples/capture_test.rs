@@ -1,12 +1,12 @@
 //! Quick test of audio capture and resampling.
-//! Run with: cargo run -p voice-controllm-daemon --example capture_test
+//! Run with: cargo run -p vcm-daemon --example capture_test
 //!
 //! Saves two WAV files:
 //! - /tmp/capture_raw.wav - original sample rate from device
 //! - /tmp/capture_16k.wav - resampled to 16kHz for speech recognition
 
 use std::time::Duration;
-use voice_controllm_daemon::audio::{AudioCapture, AudioResampler, TARGET_SAMPLE_RATE};
+use vcm_daemon::audio::{AudioCapture, AudioResampler, TARGET_SAMPLE_RATE};
 
 fn main() -> anyhow::Result<()> {
     println!("Starting audio capture test...");

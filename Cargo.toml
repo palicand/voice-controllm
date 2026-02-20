@@ -1,3 +1,33 @@
+[package]
+name = "vcm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description.workspace = true
+
+[[bin]]
+name = "vcmd"
+path = "src/bin/vcmd.rs"
+
+[[bin]]
+name = "vcmctl"
+path = "src/bin/vcmctl.rs"
+
+[[bin]]
+name = "vcm"
+path = "src/bin/vcm.rs"
+
+[dependencies]
+anyhow = "1.0"
+tokio = { version = "1.49", features = ["rt-multi-thread", "macros"] }
+vcm-daemon = { path = "daemon" }
+vcm-menubar = { path = "menubar" }
+vcmctl = { path = "cli" }
+
+[lints]
+workspace = true
+
 [workspace]
 resolver = "2"
 members = ["common", "daemon", "cli", "proto", "menubar"]

@@ -7,14 +7,12 @@ use anyhow::{Context, Result};
 use tokio::sync::{broadcast, oneshot};
 use tonic::transport::Server;
 use tracing::{error, info};
-use voice_controllm_proto::{
-    DaemonError, ErrorKind, Event, InitProgress, ModelDownload, ModelLoad, Ready,
-};
+use vcm_proto::{DaemonError, ErrorKind, Event, InitProgress, ModelDownload, ModelLoad, Ready};
 
 use crate::config::Config;
 use crate::controller::Controller;
 use crate::engine::{Engine, InitEvent};
-use crate::server::VoiceControllmService;
+use crate::server::VcmService;
 use crate::socket::{cleanup_socket, create_listener};
 
 /// Paths used by the daemon at runtime.
@@ -78,7 +76,7 @@ pub async fn run_with_paths_and_config(paths: DaemonPaths, config: Config) -> Re
     ));
 
     // Create gRPC service
-    let service = VoiceControllmService::new(controller.clone());
+    let service = VcmService::new(controller.clone());
 
     // Convert UnixListener to stream
     let incoming = async_stream::stream! {
@@ -122,41 +120,35 @@ pub async fn run_with_paths_and_config(paths: DaemonPaths, config: Config) -> Re
 fn init_event_to_proto(event: InitEvent) -> Event {
     let progress = match event {
         InitEvent::Loading { model } => {
-            voice_controllm_proto::init_progress::Progress::ModelLoad(ModelLoad {
-                model_name: model,
-            })
+            vcm_proto::init_progress::Progress::ModelLoad(ModelLoad { model_name: model })
         }
         InitEvent::Downloading {
             model,
             bytes,
             total,
-        } => voice_controllm_proto::init_progress::Progress::ModelDownload(ModelDownload {
+        } => vcm_proto::init_progress::Progress::ModelDownload(ModelDownload {
             model_name: model,
             bytes_downloaded: bytes,
             bytes_total: total,
         }),
-        InitEvent::Ready => voice_controllm_proto::init_progress::Progress::Ready(Ready {}),
+        InitEvent::Ready => vcm_proto::init_progress::Progress::Ready(Ready {}),
     };
 
     Event {
-        event: Some(voice_controllm_proto::event::Event::InitProgress(
-            InitProgress {
-                progress: Some(progress),
-            },
-        )),
+        event: Some(vcm_proto::event::Event::InitProgress(InitProgress {
+            progress: Some(progress),
+        })),
     }
 }
 
 /// Broadcast an engine error as a DaemonError event.
 fn engine_error_event(err: &anyhow::Error) -> Event {
     Event {
-        event: Some(voice_controllm_proto::event::Event::DaemonError(
-            DaemonError {
-                kind: ErrorKind::ErrorEngine.into(),
-                message: format!("{:#}", err),
-                model_name: String::new(),
-            },
-        )),
+        event: Some(vcm_proto::event::Event::DaemonError(DaemonError {
+            kind: ErrorKind::ErrorEngine.into(),
+            message: format!("{:#}", err),
+            model_name: String::new(),
+        })),
     }
 }
 

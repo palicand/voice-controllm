@@ -2,14 +2,12 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use tao::event_loop::EventLoopProxy;
-use voice_controllm_proto::event::Event as EventType;
-use voice_controllm_proto::init_progress::Progress;
-use voice_controllm_proto::{
-    Empty, SetLanguageRequest, State as ProtoState, status::Status as StatusVariant,
-};
+use vcm_proto::event::Event as EventType;
+use vcm_proto::init_progress::Progress;
+use vcm_proto::{Empty, SetLanguageRequest, State as ProtoState, status::Status as StatusVariant};
 
-use voice_controllm_common::client;
-use voice_controllm_common::dirs;
+use vcm_common::client;
+use vcm_common::dirs;
 
 use crate::state::{AppState, LanguageInfo};
 
@@ -209,16 +207,14 @@ async fn run_connected(
     }
 }
 
-fn process_event(event: voice_controllm_proto::Event) -> Option<AppState> {
+fn process_event(event: vcm_proto::Event) -> Option<AppState> {
     match event.event? {
         EventType::StateChange(sc) => match sc.status? {
-            voice_controllm_proto::state_change::Status::NewState(s) => {
+            vcm_proto::state_change::Status::NewState(s) => {
                 let state = ProtoState::try_from(s).ok()?;
                 Some(AppState::from_proto(state))
             }
-            voice_controllm_proto::state_change::Status::Error(e) => {
-                Some(AppState::Error(e.message))
-            }
+            vcm_proto::state_change::Status::Error(e) => Some(AppState::Error(e.message)),
         },
         EventType::InitProgress(progress) => match progress.progress? {
             Progress::ModelDownload(dl) => {
@@ -241,7 +237,7 @@ fn process_event(event: voice_controllm_proto::Event) -> Option<AppState> {
     }
 }
 
-fn status_to_app_state(status: voice_controllm_proto::Status) -> AppState {
+fn status_to_app_state(status: vcm_proto::Status) -> AppState {
     match status.status {
         Some(StatusVariant::Healthy(h)) => {
             let state = ProtoState::try_from(h.state).unwrap_or(ProtoState::Stopped);
@@ -256,10 +252,7 @@ fn send_state(proxy: &EventLoopProxy<UserEvent>, state: AppState) {
     let _ = proxy.send_event(UserEvent::App(AppEvent::StateChanged(state)));
 }
 
-fn send_language(
-    proxy: &EventLoopProxy<UserEvent>,
-    resp: voice_controllm_proto::GetLanguageResponse,
-) {
+fn send_language(proxy: &EventLoopProxy<UserEvent>, resp: vcm_proto::GetLanguageResponse) {
     use crate::state::LanguageSelection;
 
     let active = if resp.language.is_empty() || resp.language.eq_ignore_ascii_case("auto") {

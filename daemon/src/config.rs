@@ -1,4 +1,4 @@
-//! Configuration management for voice-controllm daemon.
+//! Configuration management for vcm daemon.
 //!
 //! Handles loading, saving, and providing defaults for the daemon configuration.
 
@@ -127,11 +127,11 @@ impl LogLevel {
     /// Convert to a tracing filter directive string for the daemon crate.
     pub fn as_directive(&self) -> &'static str {
         match self {
-            LogLevel::Error => "voice_controllm_daemon=error",
-            LogLevel::Warn => "voice_controllm_daemon=warn",
-            LogLevel::Info => "voice_controllm_daemon=info",
-            LogLevel::Debug => "voice_controllm_daemon=debug",
-            LogLevel::Trace => "voice_controllm_daemon=trace",
+            LogLevel::Error => "vcm_daemon=error",
+            LogLevel::Warn => "vcm_daemon=warn",
+            LogLevel::Info => "vcm_daemon=info",
+            LogLevel::Debug => "vcm_daemon=debug",
+            LogLevel::Trace => "vcm_daemon=trace",
         }
     }
 }
@@ -156,25 +156,25 @@ impl Default for LatencyConfig {
 
 impl Config {
     /// Returns the default config directory path.
-    /// `~/.config/voice-controllm/` (or `$XDG_CONFIG_HOME/voice-controllm/`)
+    /// `~/.config/vcm/` (or `$XDG_CONFIG_HOME/vcm/`)
     pub fn config_dir() -> Result<PathBuf> {
         crate::dirs::config_dir()
     }
 
     /// Returns the default config file path.
-    /// `~/.config/voice-controllm/config.toml`
+    /// `~/.config/vcm/config.toml`
     pub fn config_path() -> Result<PathBuf> {
         Self::config_dir().map(|p| p.join("config.toml"))
     }
 
     /// Returns the default data directory path.
-    /// `~/.local/share/voice-controllm/` (or `$XDG_DATA_HOME/voice-controllm/`)
+    /// `~/.local/share/vcm/` (or `$XDG_DATA_HOME/vcm/`)
     pub fn data_dir() -> Result<PathBuf> {
         crate::dirs::data_dir()
     }
 
     /// Returns the default models directory path.
-    /// `~/.local/share/voice-controllm/models/`
+    /// `~/.local/share/vcm/models/`
     pub fn models_dir() -> Result<PathBuf> {
         Self::data_dir().map(|p| p.join("models"))
     }
