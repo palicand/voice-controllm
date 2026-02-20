@@ -33,7 +33,7 @@ voice-controllm/
 cargo build
 
 # Run CLI
-cargo run -p vcmctl -- start
+cargo run --bin vcmctl -- start
 
 # Run tests
 cargo test

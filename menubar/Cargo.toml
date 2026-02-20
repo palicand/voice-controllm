@@ -6,10 +6,6 @@ license.workspace = true
 repository.workspace = true
 description = "System tray app for voice-controllm — menu bar control and status"
 
-[[bin]]
-name = "vcm"
-path = "src/main.rs"
-
 [lints]
 workspace = true
 

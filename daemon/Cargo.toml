@@ -10,10 +10,6 @@ description = "Background daemon for voice-controllm — audio capture, VAD, tra
 name = "voice_controllm_daemon"
 path = "src/lib.rs"
 
-[[bin]]
-name = "vcmd"
-path = "src/main.rs"
-
 [dependencies]
 anyhow = "1.0.100"
 async-stream = "0.3"

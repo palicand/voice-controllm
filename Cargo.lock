@@ -3707,6 +3707,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "voice-controllm"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "tokio",
+ "vcm",
+ "vcmctl",
+ "voice-controllm-daemon",
+]
+
+[[package]]
 name = "voice-controllm-common"
 version = "0.1.0"
 dependencies = [
