@@ -286,17 +286,32 @@ fn process_vad_chunks(
     }
 }
 
+/// Minimum speech duration in seconds to attempt transcription.
+/// Segments shorter than this are almost certainly noise/clicks, not real speech.
+const MIN_SPEECH_DURATION_SECS: f32 = 0.3;
+
 /// Transcribe accumulated speech and clear the buffer.
 fn transcribe_speech(
     components: &mut InitializedComponents,
     audio: &mut AudioBuffers,
     on_transcription: &mut impl FnMut(&str),
 ) {
+    let duration_secs = audio.speech.len() as f32 / VAD_SAMPLE_RATE as f32;
     debug!(
         samples = audio.speech.len(),
-        duration_secs = audio.speech.len() as f32 / VAD_SAMPLE_RATE as f32,
+        duration_secs = duration_secs,
         "Speech ended, transcribing"
     );
+
+    if duration_secs < MIN_SPEECH_DURATION_SECS {
+        debug!(
+            duration_secs = duration_secs,
+            min = MIN_SPEECH_DURATION_SECS,
+            "Skipping too-short speech segment"
+        );
+        audio.speech.clear();
+        return;
+    }
 
     if !audio.speech.is_empty() {
         // Sync language from shared state before transcription
