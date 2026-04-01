@@ -10,6 +10,10 @@ use whisper_rs::{
     FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperState,
 };
 
+/// Segments with no-speech probability above this threshold are dropped.
+/// Whisper's default no_speech_thold is 0.6; we use the same value.
+const NO_SPEECH_PROB_THRESHOLD: f32 = 0.6;
+
 /// Whisper speech-to-text transcriber.
 ///
 /// The underlying WhisperContext is leaked intentionally - for a long-running daemon,
@@ -89,6 +93,14 @@ impl Transcriber for WhisperTranscriber {
             params.set_language(None); // Auto-detect
         }
 
+        // Each VAD segment is independent — don't let the decoder use
+        // the previous transcription as a prompt, which causes it to
+        // repeat the last sentence when audio is ambiguous.
+        params.set_no_context(true);
+
+        // Suppress non-speech tokens (hallucinated filler like "[MUSIC]", etc.)
+        params.set_suppress_nst(true);
+
         // Disable printing to stdout
         params.set_print_special(false);
         params.set_print_progress(false);
@@ -103,15 +115,24 @@ impl Transcriber for WhisperTranscriber {
             .full(params, audio)
             .context("Whisper inference failed")?;
 
-        // Collect all segments
+        // Collect segments, filtering out those Whisper tags as non-speech.
         let num_segments = self.state.full_n_segments();
         let mut result = String::new();
 
         for i in 0..num_segments {
-            if let Some(segment) = self.state.get_segment(i)
-                && let Ok(text) = segment.to_str_lossy()
-            {
-                result.push_str(&text);
+            if let Some(segment) = self.state.get_segment(i) {
+                let no_speech_prob = segment.no_speech_probability();
+                if no_speech_prob > NO_SPEECH_PROB_THRESHOLD {
+                    debug!(
+                        segment = i,
+                        no_speech_prob = no_speech_prob,
+                        "Dropping segment with high no-speech probability"
+                    );
+                    continue;
+                }
+                if let Ok(text) = segment.to_str_lossy() {
+                    result.push_str(&text);
+                }
             }
         }
 

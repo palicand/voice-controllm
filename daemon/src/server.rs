@@ -90,6 +90,7 @@ impl Vcm for VcmService {
 
     type SubscribeStream = Pin<Box<dyn Stream<Item = Result<Event, Status>> + Send>>;
 
+    #[allow(clippy::result_large_err)]
     async fn subscribe(
         &self,
         _request: Request<Empty>,
