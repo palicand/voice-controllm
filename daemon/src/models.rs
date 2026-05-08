@@ -144,7 +144,7 @@ impl ModelId {
             ModelId::WhisperMedium => ModelInfo {
                 filename: "ggml-medium.bin",
                 url: format!("{}/ggml-medium.bin", WHISPER_BASE_URL),
-                size_bytes: Some(1_533_774_781),
+                size_bytes: Some(1_533_763_059),
                 coreml_encoder: Some(CoreMlModelInfo {
                     zip_filename: "ggml-medium-encoder.mlmodelc.zip",
                     extracted_dirname: "ggml-medium-encoder.mlmodelc",
@@ -164,7 +164,7 @@ impl ModelId {
             ModelId::WhisperLargeV3 => ModelInfo {
                 filename: "ggml-large-v3.bin",
                 url: format!("{}/ggml-large-v3.bin", WHISPER_BASE_URL),
-                size_bytes: Some(3_094_623_691),
+                size_bytes: Some(3_095_033_483),
                 coreml_encoder: Some(CoreMlModelInfo {
                     zip_filename: "ggml-large-v3-encoder.mlmodelc.zip",
                     extracted_dirname: "ggml-large-v3-encoder.mlmodelc",
