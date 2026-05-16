@@ -5,7 +5,6 @@ fn test_is_allowed_empty_allowlist() {
     let config = InjectionConfig::default();
     let injector = KeystrokeInjector::new(config).expect("should create injector");
 
-    // Empty allowlist means all apps are allowed (checked before is_allowed)
     assert!(injector.config.allowlist.is_empty());
 }
 
@@ -31,7 +30,6 @@ fn test_is_allowed_partial_match() {
     };
     let injector = KeystrokeInjector::new(config).expect("should create injector");
 
-    // Partial match: "Visual Studio Code" contains "Code"
     assert!(injector.is_allowed("Visual Studio Code"));
     assert!(injector.is_allowed("code"));
     assert!(!injector.is_allowed("Terminal"));
@@ -40,11 +38,9 @@ fn test_is_allowed_partial_match() {
 #[cfg(target_os = "macos")]
 #[test]
 fn test_get_frontmost_app() {
-    // This test requires a running macOS GUI session
-    let result = get_frontmost_app();
-    // Should succeed if running in a GUI session
-    if result.is_ok() {
-        let app = result.unwrap();
+    use crate::platform::{Frontmost, FrontmostApp};
+
+    if let Ok(app) = Frontmost::name() {
         assert!(!app.is_empty());
     }
 }
