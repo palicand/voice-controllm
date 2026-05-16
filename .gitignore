@@ -16,3 +16,11 @@ target
 
 # Worktrees
 .worktrees/
+
+# Packaging output
+/dist/
+
+# Generated icon assets (built by scripts/build-icns.sh)
+/assets/icon/AppIcon-1024.png
+/assets/icon/AppIcon.icns
+/assets/icon/AppIcon.iconset/
