@@ -38,6 +38,18 @@ Offline voice dictation utility for macOS accessibility. Designed to replace App
 
 ## Installation
 
+### From DMG (recommended)
+
+Download `VCM-<version>-aarch64.dmg` from the [latest release](https://github.com/palicand/voice-controllm/releases/latest), mount it, and drag `VCM.app` to `/Applications`. Launching opens the menu bar app — there is no Dock icon (it runs as an `LSUIElement`).
+
+For CLI access, symlink `vcmctl` onto your PATH:
+
+```bash
+ln -s /Applications/VCM.app/Contents/MacOS/vcmctl /usr/local/bin/vcmctl
+```
+
+### From source
+
 ```bash
 # From crates.io (once published)
 cargo install vcm
@@ -50,6 +62,15 @@ cargo build --release
 ```
 
 This installs three binaries: `vcmd` (daemon), `vcmctl` (CLI), and `vcm` (menu bar app).
+
+### Building the .app locally
+
+```bash
+./scripts/package.sh
+open dist/VCM.app
+```
+
+Produces an ad-hoc-signed `dist/VCM.app` and `dist/VCM-<version>-aarch64.dmg`. See [docs/release.md](docs/release.md) for Developer ID signing and notarization.
 
 ## Quick Start
 
@@ -109,11 +130,23 @@ cargo doc --open
 
 ## Logging
 
-Daemon logs are written to `~/.local/state/vcm/daemon.log`. Set the log level in config or override with `VCM_LOG`:
+VCM logs to the macOS unified logging system under the `com.palicka.vcm` subsystem. View logs in Console.app (filter by subsystem) or from the terminal:
+
+```bash
+# Show recent logs
+log show --predicate 'subsystem == "com.palicka.vcm"' --last 5m
+
+# Stream live (use --debug to include debug-level messages)
+log stream --predicate 'subsystem == "com.palicka.vcm"' --info
+```
+
+Override the log level with the `VCM_LOG` environment variable:
 
 ```bash
 VCM_LOG=debug vcmctl start
 ```
+
+To also write to a file (useful for offline debugging), set `VCM_LOG_FILE=1` before starting the daemon — logs will appear at `~/.local/state/vcm/daemon.log`.
 
 ## License
 
