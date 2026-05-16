@@ -91,7 +91,7 @@ jobs:
 
       - name: Locate bundle
         run: |
-          APP=target/aarch64-apple-darwin/release/bundle/macos/VCM.app
+          APP=target/aarch64-apple-darwin/release/VCM.app
           test -d "$APP" || { echo "::error::Expected .app not found at $APP"; exit 1; }
           echo "APP_PATH=$APP" >> "$GITHUB_ENV"
 

@@ -44,3 +44,35 @@ keywords = ["voice", "dictation", "speech-to-text", "accessibility", "macos"]
 [workspace.lints.clippy]
 excessive_nesting = "warn"
 too_many_lines = "warn"
+
+[package.metadata.packager]
+product_name = "VCM"
+identifier = "com.github.palicand.vcm"
+description = "Offline voice dictation for macOS accessibility"
+license_file = "LICENSE"
+icons = ["assets/icon/AppIcon.icns"]
+formats = ["app"]
+
+# Binaries are resolved relative to binaries_dir (auto-set to target/<triple>/<profile>)
+[[package.metadata.packager.binaries]]
+path = "vcm"
+main = true
+
+# Resources land under Contents/Resources/<target>; src paths are relative to cwd
+[[package.metadata.packager.resources]]
+src = "target/aarch64-apple-darwin/release/vcmd"
+target = "vcmd"
+
+[[package.metadata.packager.resources]]
+src = "target/aarch64-apple-darwin/release/vcmctl"
+target = "bin/vcmctl"
+
+[[package.metadata.packager.resources]]
+src = "scripts/install-vcmctl-cli.sh"
+target = "install-vcmctl-cli.sh"
+
+[package.metadata.packager.macos]
+info_plist_path = "assets/macos/Info.plist"
+entitlements = "assets/macos/entitlements.plist"
+minimum_system_version = "13.0"
+background_app = true
