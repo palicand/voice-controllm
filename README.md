@@ -36,7 +36,27 @@ Offline voice dictation utility for macOS accessibility. Designed to replace App
 - Microphone permissions (grant in System Settings > Privacy & Security > Microphone)
 - Accessibility permissions for keystroke injection (grant in System Settings > Privacy & Security > Accessibility)
 
-## Installation
+## Install
+
+### From DMG (recommended)
+1. Download `VCM-X.Y.Z-aarch64.dmg` from the [latest release](https://github.com/palicand/voice-controllm/releases/latest).
+2. Open the DMG, drag VCM.app to Applications.
+3. Launch VCM (see "First launch" below if you hit a Gatekeeper warning). The microphone icon will appear in the menu bar.
+4. To use `vcmctl` from the terminal, click the menu icon → "Install vcmctl in PATH". (You'll be prompted for your admin password to create the symlink.)
+
+### First launch
+VCM v0.1 is **ad-hoc-signed** (the project hasn't enrolled in the paid Apple Developer Program yet). On first launch macOS will show:
+
+> "VCM" cannot be opened because the developer cannot be verified.
+
+This is a Gatekeeper warning, not a malware detection. Bypass it once:
+
+- **Easy:** right-click `VCM.app` in Finder → **Open** → click "Open" in the confirmation dialog. macOS remembers your choice; subsequent launches are normal.
+- **Terminal alternative:** `xattr -d com.apple.quarantine /Applications/VCM.app`
+
+Once the project graduates to a Developer ID Application signature + Apple notarization, this warning will go away for new downloads.
+
+### From source
 
 ```bash
 # From crates.io (once published)
@@ -50,6 +70,13 @@ cargo build --release
 ```
 
 This installs three binaries: `vcmd` (daemon), `vcmctl` (CLI), and `vcm` (menu bar app).
+
+## Logs
+VCM logs to the macOS unified logging system. View in Console.app (filter by subsystem `com.github.palicand.vcm`) or from terminal:
+
+```bash
+log stream --predicate 'subsystem == "com.github.palicand.vcm"' --info
+```
 
 ## Quick Start
 
