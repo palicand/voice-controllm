@@ -20,8 +20,7 @@ pub async fn run() -> anyhow::Result<()> {
     let config = config::Config::load().unwrap_or_default();
 
     let with_file_sink_dir = if std::env::var("VCM_LOG_FILE").is_ok() {
-        let path = socket::log_path()
-            .context("VCM_LOG_FILE set but log path unresolvable")?;
+        let path = socket::log_path().context("VCM_LOG_FILE set but log path unresolvable")?;
         Some(path.parent().expect("log path has parent").to_path_buf())
     } else {
         None
