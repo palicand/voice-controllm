@@ -134,7 +134,26 @@ impl App {
     }
 }
 
+/// Logging subsystem identifier — matches the bundle id used by the daemon.
+const LOG_SUBSYSTEM: &str = "com.palicka.vcm";
+
+fn init_logging() {
+    use tracing_subscriber::EnvFilter;
+    use tracing_subscriber::prelude::*;
+
+    let filter = EnvFilter::builder()
+        .with_env_var("VCM_LOG")
+        .with_default_directive("vcm_menubar=info".parse().expect("valid directive"))
+        .from_env_lossy();
+
+    let _ = tracing_subscriber::registry()
+        .with(filter)
+        .with(tracing_oslog::OsLogger::new(LOG_SUBSYSTEM, "menubar"))
+        .try_init();
+}
+
 pub fn run() {
+    init_logging();
     icons::validate();
 
     let mut event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
