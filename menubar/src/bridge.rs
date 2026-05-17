@@ -279,7 +279,9 @@ fn applescript_quote(s: &str) -> String {
 }
 
 /// In a bundle, the script lives at `Contents/Resources/install-vcmctl-cli.sh`.
-/// In dev (`target/<profile>/vcm`), walk up two levels to the workspace root.
+/// In dev, walk up ancestors to find the workspace `target/` directory and use
+/// its parent as the workspace root — handles both `target/<profile>/vcm` and
+/// `target/<triple>/<profile>/vcm` layouts.
 fn install_script_path(current_exe: &std::path::Path) -> std::path::PathBuf {
     let parent = current_exe
         .parent()
@@ -293,8 +295,9 @@ fn install_script_path(current_exe: &std::path::Path) -> std::path::PathBuf {
             .unwrap_or_else(|| parent.join("install-vcmctl-cli.sh"))
     } else {
         parent
-            .parent()
-            .and_then(|p| p.parent())
+            .ancestors()
+            .find(|p| p.file_name().is_some_and(|n| n == "target"))
+            .and_then(std::path::Path::parent)
             .map(|root| root.join("scripts").join("install-vcmctl-cli.sh"))
             .unwrap_or_else(|| parent.join("install-vcmctl-cli.sh"))
     }
@@ -391,7 +394,12 @@ async fn copy_to_clipboard(line: &str) -> std::io::Result<()> {
     if let Some(mut stdin) = child.stdin.take() {
         stdin.write_all(line.as_bytes()).await?;
     }
-    child.wait().await?;
+    let status = child.wait().await?;
+    if !status.success() {
+        return Err(std::io::Error::other(format!(
+            "pbcopy exited with status {status}"
+        )));
+    }
     Ok(())
 }
 
@@ -404,11 +412,16 @@ async fn show_path_advice_dialog(advice: &ShellAdvice) -> std::io::Result<()> {
         "display dialog {} buttons {{\"OK\"}} default button \"OK\" with icon note with title \"VCM\"",
         applescript_quote(&body)
     );
-    tokio::process::Command::new("osascript")
+    let status = tokio::process::Command::new("osascript")
         .arg("-e")
         .arg(&applescript)
         .status()
         .await?;
+    if !status.success() {
+        return Err(std::io::Error::other(format!(
+            "osascript exited with status {status}"
+        )));
+    }
     Ok(())
 }
 
@@ -446,6 +459,15 @@ mod tests {
     #[test]
     fn dev_script_in_workspace_scripts_dir() {
         let exe = PathBuf::from("/Users/x/proj/target/debug/vcm");
+        assert_eq!(
+            install_script_path(&exe),
+            PathBuf::from("/Users/x/proj/scripts/install-vcmctl-cli.sh")
+        );
+    }
+
+    #[test]
+    fn dev_script_with_target_triple_build_dir() {
+        let exe = PathBuf::from("/Users/x/proj/target/aarch64-apple-darwin/release/vcm");
         assert_eq!(
             install_script_path(&exe),
             PathBuf::from("/Users/x/proj/scripts/install-vcmctl-cli.sh")
