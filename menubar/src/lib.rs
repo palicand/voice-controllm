@@ -77,6 +77,8 @@ impl App {
                 }
                 _ => {}
             }
+        } else if event.id == self.menu_items.install_cli.id() {
+            let _ = self.cmd_tx.send(Command::InstallCli);
         } else if let Some(code) = self.find_clicked_language(&event) {
             let _ = self.cmd_tx.send(Command::SetLanguage(code.clone()));
             // Keep local state in sync so rebuilds before LanguageChanged don't revert
@@ -142,8 +144,8 @@ pub fn init_logging() -> anyhow::Result<()> {
         .from_env_lossy();
 
     let with_file_sink_dir = if std::env::var("VCM_LOG_FILE").is_ok() {
-        let dir = vcm_common::dirs::state_dir()
-            .context("VCM_LOG_FILE set but state dir unresolvable")?;
+        let dir =
+            vcm_common::dirs::state_dir().context("VCM_LOG_FILE set but state dir unresolvable")?;
         Some(dir)
     } else {
         None

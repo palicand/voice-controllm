@@ -1,6 +1,8 @@
 use std::sync::mpsc;
 use std::time::Duration;
 
+use anyhow::Context as _;
+
 use tao::event_loop::EventLoopProxy;
 use vcm_proto::event::Event as EventType;
 use vcm_proto::init_progress::Progress;
@@ -27,6 +29,7 @@ pub enum Command {
     StopListening,
     SetLanguage(String),
     Shutdown,
+    InstallCli,
 }
 
 /// User events for the tao event loop.
@@ -184,6 +187,40 @@ async fn run_connected(
                     send_language(event_proxy, resp.into_inner());
                 }
             }
+            Ok(Command::InstallCli) => {
+                let current_exe = match std::env::current_exe() {
+                    Ok(p) => p,
+                    Err(e) => {
+                        tracing::error!(?e, "failed to get current_exe for InstallCli");
+                        continue;
+                    }
+                };
+                let vcmctl = resolve_bundled_vcmctl_path(&current_exe);
+                let script = install_script_path(&current_exe);
+
+                let applescript = format!(
+                    r#"do shell script {} with administrator privileges"#,
+                    applescript_quote(&format!(
+                        "{} {}",
+                        shell_quote(&script.to_string_lossy()),
+                        shell_quote(&vcmctl.to_string_lossy()),
+                    )),
+                );
+
+                tokio::task::spawn_blocking(move || {
+                    let result = std::process::Command::new("osascript")
+                        .arg("-e")
+                        .arg(&applescript)
+                        .status();
+                    match result {
+                        Ok(status) if status.success() => {
+                            tracing::info!("vcmctl installed in PATH");
+                        }
+                        Ok(status) => tracing::warn!(?status, "vcmctl install failed"),
+                        Err(e) => tracing::error!(?e, "vcmctl install command failed to spawn"),
+                    }
+                });
+            }
             Err(mpsc::TryRecvError::Empty) => {}
             Err(mpsc::TryRecvError::Disconnected) => {
                 return ConnectionResult::Shutdown;
@@ -267,11 +304,84 @@ fn send_language(proxy: &EventLoopProxy<UserEvent>, resp: vcm_proto::GetLanguage
     let _ = proxy.send_event(UserEvent::App(AppEvent::LanguageChanged(info)));
 }
 
-fn spawn_daemon() -> anyhow::Result<()> {
-    let daemon_path = std::env::current_exe()?
+fn shell_quote(s: &str) -> String {
+    format!("'{}'", s.replace('\'', r"'\''"))
+}
+
+fn applescript_quote(s: &str) -> String {
+    format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
+}
+
+/// Resolve the path to bundled `vcmctl` based on the current executable's location.
+///
+/// In a macOS .app bundle, vcmctl lives at `Contents/Resources/bin/vcmctl`.
+/// In dev builds, it's a sibling of `vcm`.
+fn resolve_bundled_vcmctl_path(current_exe: &std::path::Path) -> std::path::PathBuf {
+    let parent = current_exe
         .parent()
-        .ok_or_else(|| anyhow::anyhow!("No parent directory"))?
-        .join("vcmd");
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_default();
+
+    if parent.ends_with("Contents/MacOS") {
+        parent
+            .parent()
+            .map(|contents| contents.join("Resources").join("bin").join("vcmctl"))
+            .unwrap_or_else(|| parent.join("vcmctl"))
+    } else {
+        parent.join("vcmctl")
+    }
+}
+
+/// Resolve the path to the install-vcmctl-cli.sh script.
+///
+/// In a bundle: `Contents/Resources/install-vcmctl-cli.sh`.
+/// In dev: `scripts/install-vcmctl-cli.sh` relative to the workspace root.
+fn install_script_path(current_exe: &std::path::Path) -> std::path::PathBuf {
+    let parent = current_exe
+        .parent()
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_default();
+
+    if parent.ends_with("Contents/MacOS") {
+        parent
+            .parent()
+            .map(|contents| contents.join("Resources").join("install-vcmctl-cli.sh"))
+            .unwrap_or_else(|| parent.join("install-vcmctl-cli.sh"))
+    } else {
+        // Dev: walk up from target/<profile>/vcm to workspace root, then scripts/.
+        // target/debug/vcm → target/debug → target → <root>
+        parent
+            .parent()
+            .and_then(|p| p.parent())
+            .map(|root| root.join("scripts").join("install-vcmctl-cli.sh"))
+            .unwrap_or_else(|| parent.join("install-vcmctl-cli.sh"))
+    }
+}
+
+/// Resolve the path to `vcmd` based on the current executable's location.
+///
+/// When running from inside a macOS .app bundle (`.../Contents/MacOS/vcm`),
+/// `vcmd` lives at `.../Contents/Helpers/vcmd`. Otherwise (dev / cargo install)
+/// they are siblings.
+fn resolve_vcmd_path(current_exe: &std::path::Path) -> std::path::PathBuf {
+    let parent = current_exe
+        .parent()
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_default();
+
+    if parent.ends_with("Contents/MacOS") {
+        parent
+            .parent()
+            .map(|contents| contents.join("Helpers").join("vcmd"))
+            .unwrap_or_else(|| parent.join("vcmd"))
+    } else {
+        parent.join("vcmd")
+    }
+}
+
+fn spawn_daemon() -> anyhow::Result<()> {
+    let current_exe = std::env::current_exe().context("get current exe")?;
+    let daemon_path = resolve_vcmd_path(&current_exe);
 
     if !daemon_path.exists() {
         anyhow::bail!("Daemon binary not found at: {}", daemon_path.display());
@@ -284,4 +394,112 @@ fn spawn_daemon() -> anyhow::Result<()> {
         .spawn()?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod vcmd_path_tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn dev_build_uses_sibling() {
+        let exe = PathBuf::from("/Users/x/proj/target/debug/vcm");
+        assert_eq!(
+            resolve_vcmd_path(&exe),
+            PathBuf::from("/Users/x/proj/target/debug/vcmd")
+        );
+    }
+
+    #[test]
+    fn bundled_uses_helpers_dir() {
+        let exe = PathBuf::from("/Applications/VCM.app/Contents/MacOS/vcm");
+        assert_eq!(
+            resolve_vcmd_path(&exe),
+            PathBuf::from("/Applications/VCM.app/Contents/Helpers/vcmd")
+        );
+    }
+
+    #[test]
+    fn release_build_uses_sibling() {
+        let exe = PathBuf::from("/Users/x/proj/target/release/vcm");
+        assert_eq!(
+            resolve_vcmd_path(&exe),
+            PathBuf::from("/Users/x/proj/target/release/vcmd")
+        );
+    }
+
+    #[test]
+    fn cargo_install_uses_sibling() {
+        let exe = PathBuf::from("/Users/x/.cargo/bin/vcm");
+        assert_eq!(
+            resolve_vcmd_path(&exe),
+            PathBuf::from("/Users/x/.cargo/bin/vcmd")
+        );
+    }
+
+    #[test]
+    fn bundled_vcmctl_in_resources_bin() {
+        let exe = PathBuf::from("/Applications/VCM.app/Contents/MacOS/vcm");
+        assert_eq!(
+            resolve_bundled_vcmctl_path(&exe),
+            PathBuf::from("/Applications/VCM.app/Contents/Resources/bin/vcmctl")
+        );
+    }
+
+    #[test]
+    fn dev_vcmctl_is_sibling() {
+        let exe = PathBuf::from("/Users/x/proj/target/debug/vcm");
+        assert_eq!(
+            resolve_bundled_vcmctl_path(&exe),
+            PathBuf::from("/Users/x/proj/target/debug/vcmctl")
+        );
+    }
+
+    #[test]
+    fn bundled_script_in_resources() {
+        let exe = PathBuf::from("/Applications/VCM.app/Contents/MacOS/vcm");
+        assert_eq!(
+            install_script_path(&exe),
+            PathBuf::from("/Applications/VCM.app/Contents/Resources/install-vcmctl-cli.sh")
+        );
+    }
+
+    #[test]
+    fn dev_script_in_workspace_scripts_dir() {
+        let exe = PathBuf::from("/Users/x/proj/target/debug/vcm");
+        assert_eq!(
+            install_script_path(&exe),
+            PathBuf::from("/Users/x/proj/scripts/install-vcmctl-cli.sh")
+        );
+    }
+
+    #[test]
+    fn shell_quote_simple() {
+        assert_eq!(shell_quote("foo"), "'foo'");
+    }
+
+    #[test]
+    fn shell_quote_with_space() {
+        assert_eq!(shell_quote("/Users/A B/bin/x"), "'/Users/A B/bin/x'");
+    }
+
+    #[test]
+    fn shell_quote_with_single_quote() {
+        assert_eq!(shell_quote("it's"), r"'it'\''s'");
+    }
+
+    #[test]
+    fn applescript_quote_simple() {
+        assert_eq!(applescript_quote("foo"), "\"foo\"");
+    }
+
+    #[test]
+    fn applescript_quote_with_double_quote() {
+        assert_eq!(applescript_quote(r#"he said "hi""#), r#""he said \"hi\"""#);
+    }
+
+    #[test]
+    fn applescript_quote_with_backslash() {
+        assert_eq!(applescript_quote(r"a\b"), r#""a\\b""#);
+    }
 }
