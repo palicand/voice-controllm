@@ -62,6 +62,14 @@ fn is_vcmctl_installed_with_home(current_exe: &Path, home: &Path) -> bool {
         return false;
     };
     let install_path = home.join(".local").join("bin").join("vcmctl");
+    if let Ok(meta) = std::fs::symlink_metadata(&install_path)
+        && !meta.file_type().is_symlink()
+    {
+        tracing::warn!(
+            path = %install_path.display(),
+            "~/.local/bin/vcmctl exists but is not a symlink; installer expects a symlink to the bundled vcmctl"
+        );
+    }
     let Ok(canon_install) = std::fs::canonicalize(&install_path) else {
         return false;
     };
