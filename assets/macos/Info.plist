@@ -11,9 +11,9 @@
     <key>CFBundleExecutable</key>
     <string>vcm</string>
     <key>CFBundleVersion</key>
-    <string>0.1.1</string>
+    <string>__VERSION__</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.1</string>
+    <string>__VERSION__</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundlePackageType</key>

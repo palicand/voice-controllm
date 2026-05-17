@@ -3784,7 +3784,7 @@ checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
 name = "vcm"
-version = "0.1.1"
+version = "0.0.0-dev"
 dependencies = [
  "anyhow",
  "tokio",
@@ -3795,7 +3795,7 @@ dependencies = [
 
 [[package]]
 name = "vcm-common"
-version = "0.1.1"
+version = "0.0.0-dev"
 dependencies = [
  "anyhow",
  "hyper-util",
@@ -3810,7 +3810,7 @@ dependencies = [
 
 [[package]]
 name = "vcm-daemon"
-version = "0.1.1"
+version = "0.0.0-dev"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -3845,7 +3845,7 @@ dependencies = [
 
 [[package]]
 name = "vcm-menubar"
-version = "0.1.1"
+version = "0.0.0-dev"
 dependencies = [
  "anyhow",
  "image",
@@ -3862,7 +3862,7 @@ dependencies = [
 
 [[package]]
 name = "vcm-platform"
-version = "0.1.1"
+version = "0.0.0-dev"
 dependencies = [
  "accessibility-sys",
  "anyhow",
@@ -3880,7 +3880,7 @@ dependencies = [
 
 [[package]]
 name = "vcm-proto"
-version = "0.1.1"
+version = "0.0.0-dev"
 dependencies = [
  "prost",
  "tonic",
@@ -3889,7 +3889,7 @@ dependencies = [
 
 [[package]]
 name = "vcmctl"
-version = "0.1.1"
+version = "0.0.0-dev"
 dependencies = [
  "anyhow",
  "clap",

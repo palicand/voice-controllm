@@ -14,6 +14,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Stamp version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-].+)?$ ]]; then
+            echo "::error::Tag '${GITHUB_REF_NAME}' is not a semver release tag"
+            exit 1
+          fi
+          sed -i '' -E 's/^version = "0\.0\.0-dev"$/version = "'"$VERSION"'"/' Cargo.toml
+          grep -q "^version = \"$VERSION\"$" Cargo.toml || { echo "::error::Failed to stamp workspace version"; exit 1; }
+          sed -i '' "s/__VERSION__/$VERSION/g" assets/macos/Info.plist assets/macos/vcmd-Info.plist
+
       - name: Cache cargo registry + target
         uses: Swatinem/rust-cache@v2
         with:
@@ -179,10 +190,11 @@ jobs:
 
       - name: Compose release notes prelude
         run: |
+          VERSION="${GITHUB_REF_NAME#v}"
           {
             if [[ "${{ steps.signing.outputs.sign_developer_id }}" == "false" ]]; then
-              cat <<'EOF'
-            > **First launch on macOS:** VCM v0.1 is ad-hoc-signed (not notarized by Apple). On first launch you may see "VCM cannot be opened because the developer cannot be verified." Bypass: right-click `VCM.app` in Finder → **Open** → click "Open" in the confirmation dialog. Only needed once. Alternative: `xattr -dr com.apple.quarantine /Applications/VCM.app` (the `-r` is required so the menubar and daemon binaries inside the bundle are also de-quarantined).
+              sed "s/__VERSION__/$VERSION/g" <<'EOF'
+            > **First launch on macOS:** VCM v__VERSION__ is ad-hoc-signed (not notarized by Apple). On first launch you may see "VCM cannot be opened because the developer cannot be verified." Bypass: right-click `VCM.app` in Finder → **Open** → click "Open" in the confirmation dialog. Only needed once. Alternative: `xattr -dr com.apple.quarantine /Applications/VCM.app` (the `-r` is required so the menubar and daemon binaries inside the bundle are also de-quarantined).
           EOF
             fi
           } > release-notes-prelude.md
