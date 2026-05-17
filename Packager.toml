@@ -1,0 +1,35 @@
+# cargo-packager configuration. See https://docs.crabnebula.dev/packager/configuration/
+
+product_name = "VCM"
+version = "0.1.0"  # overridden by --version from CI
+identifier = "com.github.palicand.vcm"
+description = "Offline voice dictation for macOS accessibility"
+authors = ["Andrej Palicka"]
+license_file = "LICENSE"
+
+# Primary binary
+binaries = [
+    { path = "target/aarch64-apple-darwin/release/vcm", main = true },
+]
+
+# Auxiliary files bundled into the .app
+resources = [
+    # All resources land under Contents/Resources/<target>:
+    # vcmd → Contents/Resources/vcmd
+    # vcmctl → Contents/Resources/bin/vcmctl
+    # install script → Contents/Resources/install-vcmctl-cli.sh
+    { src = "target/aarch64-apple-darwin/release/vcmd",   target = "vcmd" },
+    { src = "target/aarch64-apple-darwin/release/vcmctl", target = "bin/vcmctl" },
+    { src = "scripts/install-vcmctl-cli.sh",              target = "install-vcmctl-cli.sh" },
+]
+
+# Bundle/install formats to produce
+formats = ["app", "dmg"]
+
+[macos]
+info_plist_path = "assets/macos/Info.plist"
+entitlements = "assets/macos/entitlements.plist"
+minimum_system_version = "13.0"
+background_app = true  # LSUIElement = true
+# signing_identity / notarization_credentials are injected by the release workflow,
+# not committed here.

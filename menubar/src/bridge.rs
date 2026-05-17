@@ -361,7 +361,7 @@ fn install_script_path(current_exe: &std::path::Path) -> std::path::PathBuf {
 /// Resolve the path to `vcmd` based on the current executable's location.
 ///
 /// When running from inside a macOS .app bundle (`.../Contents/MacOS/vcm`),
-/// `vcmd` lives at `.../Contents/Helpers/vcmd`. Otherwise (dev / cargo install)
+/// `vcmd` lives at `.../Contents/Resources/vcmd`. Otherwise (dev / cargo install)
 /// they are siblings.
 fn resolve_vcmd_path(current_exe: &std::path::Path) -> std::path::PathBuf {
     let parent = current_exe
@@ -372,7 +372,7 @@ fn resolve_vcmd_path(current_exe: &std::path::Path) -> std::path::PathBuf {
     if parent.ends_with("Contents/MacOS") {
         parent
             .parent()
-            .map(|contents| contents.join("Helpers").join("vcmd"))
+            .map(|contents| contents.join("Resources").join("vcmd"))
             .unwrap_or_else(|| parent.join("vcmd"))
     } else {
         parent.join("vcmd")
@@ -411,11 +411,11 @@ mod vcmd_path_tests {
     }
 
     #[test]
-    fn bundled_uses_helpers_dir() {
+    fn bundled_uses_resources_dir() {
         let exe = PathBuf::from("/Applications/VCM.app/Contents/MacOS/vcm");
         assert_eq!(
             resolve_vcmd_path(&exe),
-            PathBuf::from("/Applications/VCM.app/Contents/Helpers/vcmd")
+            PathBuf::from("/Applications/VCM.app/Contents/Resources/vcmd")
         );
     }
 
