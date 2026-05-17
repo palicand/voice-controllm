@@ -47,25 +47,56 @@ pub const VCMCTL: BundleLayout<'static> = BundleLayout {
     fallback: &["vcmctl"],
 };
 
+/// The state of the `vcmctl` installation at `~/.local/bin/vcmctl`.
+#[derive(Debug, PartialEq, Eq)]
+pub enum VcmctlInstallState {
+    /// A symlink exists and resolves to the vcmctl shipped alongside `current_exe`.
+    Installed,
+    /// No file exists at the install path (or the bundle target is missing).
+    NotInstalled,
+    /// A file exists at the install path but it is **not** a symlink. The user
+    /// may have placed their own vcmctl there deliberately.
+    ConflictingFile,
+}
+
+/// Returns the install state of `vcmctl` at `~/.local/bin/vcmctl` relative to
+/// the vcmctl shipped alongside `current_exe`.
+pub fn vcmctl_install_state(current_exe: &Path) -> VcmctlInstallState {
+    let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
+        return VcmctlInstallState::NotInstalled;
+    };
+    vcmctl_install_state_with_home(current_exe, &home)
+}
+
 /// Returns true iff `~/.local/bin/vcmctl` is a symlink that resolves to the
 /// vcmctl shipped alongside `current_exe`.
 pub fn is_vcmctl_installed(current_exe: &Path) -> bool {
-    let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
-        return false;
+    vcmctl_install_state(current_exe) == VcmctlInstallState::Installed
+}
+
+fn vcmctl_install_state_with_home(current_exe: &Path, home: &Path) -> VcmctlInstallState {
+    let bundle_target = resolve(current_exe, VCMCTL);
+    let Ok(canon_bundle) = std::fs::canonicalize(&bundle_target) else {
+        return VcmctlInstallState::NotInstalled;
     };
-    is_vcmctl_installed_with_home(current_exe, &home)
+    let install_path = home.join(".local").join("bin").join("vcmctl");
+    // Check for a regular file (not a symlink) before attempting canonicalize,
+    // which would silently follow symlinks and lose this distinction.
+    if install_path.exists() && !install_path.is_symlink() {
+        return VcmctlInstallState::ConflictingFile;
+    }
+    let Ok(canon_install) = std::fs::canonicalize(&install_path) else {
+        return VcmctlInstallState::NotInstalled;
+    };
+    if canon_install == canon_bundle {
+        VcmctlInstallState::Installed
+    } else {
+        VcmctlInstallState::NotInstalled
+    }
 }
 
 fn is_vcmctl_installed_with_home(current_exe: &Path, home: &Path) -> bool {
-    let bundle_target = resolve(current_exe, VCMCTL);
-    let Ok(canon_bundle) = std::fs::canonicalize(&bundle_target) else {
-        return false;
-    };
-    let install_path = home.join(".local").join("bin").join("vcmctl");
-    let Ok(canon_install) = std::fs::canonicalize(&install_path) else {
-        return false;
-    };
-    canon_install == canon_bundle
+    vcmctl_install_state_with_home(current_exe, home) == VcmctlInstallState::Installed
 }
 
 #[cfg(test)]
@@ -179,6 +210,49 @@ mod tests {
         .unwrap();
 
         assert!(!is_vcmctl_installed_with_home(&exe, &home));
+    }
+
+    #[test]
+    fn conflicting_file_state_when_regular_file_at_install_path() {
+        let tmp = tempdir().unwrap();
+        let (exe, home) = fake_install_layout(tmp.path());
+        fs::write(
+            home.join(".local").join("bin").join("vcmctl"),
+            b"vcmctl-bin",
+        )
+        .unwrap();
+
+        assert_eq!(
+            vcmctl_install_state_with_home(&exe, &home),
+            VcmctlInstallState::ConflictingFile
+        );
+    }
+
+    #[test]
+    fn not_installed_state_when_no_file_at_install_path() {
+        let tmp = tempdir().unwrap();
+        let (exe, home) = fake_install_layout(tmp.path());
+
+        assert_eq!(
+            vcmctl_install_state_with_home(&exe, &home),
+            VcmctlInstallState::NotInstalled
+        );
+    }
+
+    #[test]
+    fn installed_state_when_symlink_points_to_bundle() {
+        let tmp = tempdir().unwrap();
+        let (exe, home) = fake_install_layout(tmp.path());
+        symlink(
+            tmp.path().join("bundle").join("vcmctl"),
+            home.join(".local").join("bin").join("vcmctl"),
+        )
+        .unwrap();
+
+        assert_eq!(
+            vcmctl_install_state_with_home(&exe, &home),
+            VcmctlInstallState::Installed
+        );
     }
 
     #[test]

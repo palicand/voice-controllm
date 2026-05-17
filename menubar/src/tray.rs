@@ -1,5 +1,7 @@
+use tracing::warn;
 use tray_icon::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tray_icon::{TrayIcon, TrayIconBuilder};
+use vcm_common::bundle::VcmctlInstallState;
 
 use crate::icons;
 use crate::state::{AppState, LanguageInfo};
@@ -28,14 +30,22 @@ pub fn build_menu(state: &AppState, language: &LanguageInfo) -> (Menu, MenuItems
     // Toggle action (only shown for Paused/Listening)
     let toggle = MenuItem::new(state.toggle_label(), state.has_toggle(), None);
 
-    let installed = std::env::current_exe()
-        .map(|exe| vcm_common::bundle::is_vcmctl_installed(&exe))
-        .unwrap_or(false);
-    let install_cli = (!installed).then(|| MenuItem::new("Install vcmctl in PATH", true, None));
+    let install_state = std::env::current_exe()
+        .map(|exe| vcm_common::bundle::vcmctl_install_state(&exe))
+        .unwrap_or(VcmctlInstallState::NotInstalled);
+    if install_state == VcmctlInstallState::ConflictingFile {
+        warn!(
+            path = "~/.local/bin/vcmctl",
+            "vcmctl exists at the install path but is not a symlink; \
+             the user may have placed their own binary there"
+        );
+    }
+    let install_cli = (install_state != VcmctlInstallState::Installed)
+        .then(|| MenuItem::new("Install vcmctl in PATH", true, None));
     let quit = MenuItem::new("Quit", true, None);
 
     // Build language items if there are available languages
-    let language_items = build_language_items(language);
+
 
     // Assemble the menu
     menu.append_items(&[&status, &PredefinedMenuItem::separator()])
