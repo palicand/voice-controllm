@@ -108,11 +108,8 @@ async fn cmd_start() -> Result<()> {
         return Ok(());
     }
 
-    // Spawn daemon as detached process
-    let daemon_path = std::env::current_exe()?
-        .parent()
-        .context("No parent directory")?
-        .join("vcmd");
+    let current_exe = std::env::current_exe().context("get current exe")?;
+    let daemon_path = vcm_common::bundle::resolve(&current_exe, vcm_common::bundle::VCMD);
 
     if !daemon_path.exists() {
         anyhow::bail!("Daemon binary not found at: {}", daemon_path.display());

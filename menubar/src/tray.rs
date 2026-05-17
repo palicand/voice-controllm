@@ -9,6 +9,8 @@ pub struct MenuItems {
     pub toggle: MenuItem,
     /// Language check menu items: each entry is (CheckMenuItem, language code).
     pub language_items: Vec<(CheckMenuItem, String)>,
+    /// `None` when vcmctl is already installed (item is omitted from the menu).
+    pub install_cli: Option<MenuItem>,
     pub quit: MenuItem,
 }
 
@@ -26,6 +28,10 @@ pub fn build_menu(state: &AppState, language: &LanguageInfo) -> (Menu, MenuItems
     // Toggle action (only shown for Paused/Listening)
     let toggle = MenuItem::new(state.toggle_label(), state.has_toggle(), None);
 
+    let installed = std::env::current_exe()
+        .map(|exe| vcm_common::bundle::is_vcmctl_installed(&exe))
+        .unwrap_or(false);
+    let install_cli = (!installed).then(|| MenuItem::new("Install vcmctl in PATH", true, None));
     let quit = MenuItem::new("Quit", true, None);
 
     // Build language items if there are available languages
@@ -50,6 +56,10 @@ pub fn build_menu(state: &AppState, language: &LanguageInfo) -> (Menu, MenuItems
             .expect("failed to build menu");
     }
 
+    if let Some(install_cli) = &install_cli {
+        menu.append_items(&[install_cli, &PredefinedMenuItem::separator()])
+            .expect("failed to build menu");
+    }
     menu.append_items(&[&quit]).expect("failed to build menu");
 
     (
@@ -57,6 +67,7 @@ pub fn build_menu(state: &AppState, language: &LanguageInfo) -> (Menu, MenuItems
         MenuItems {
             toggle,
             language_items,
+            install_cli,
             quit,
         },
     )

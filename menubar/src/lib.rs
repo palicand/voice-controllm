@@ -76,6 +76,13 @@ impl App {
                 }
                 _ => {}
             }
+        } else if self
+            .menu_items
+            .install_cli
+            .as_ref()
+            .is_some_and(|item| event.id == *item.id())
+        {
+            let _ = self.cmd_tx.send(Command::InstallCli);
         } else if let Some(code) = self.find_clicked_language(&event) {
             let _ = self.cmd_tx.send(Command::SetLanguage(code.clone()));
             // Keep local state in sync so rebuilds before LanguageChanged don't revert
@@ -112,11 +119,20 @@ impl App {
                 return ControlFlow::Exit;
             }
             AppEvent::StateChanged(new_state) => {
+                if new_state == self.current_state {
+                    return ControlFlow::Wait;
+                }
                 self.current_state = new_state;
                 self.rebuild_menu();
             }
             AppEvent::LanguageChanged(info) => {
+                if info == self.language {
+                    return ControlFlow::Wait;
+                }
                 self.language = info;
+                self.rebuild_menu();
+            }
+            AppEvent::InstallCompleted => {
                 self.rebuild_menu();
             }
         }
@@ -134,6 +150,15 @@ impl App {
     }
 }
 
+pub fn init_logging() -> anyhow::Result<()> {
+    let state_dir = vcm_common::dirs::state_dir()?;
+    vcm_platform::logging::init(
+        vcm_platform::logging::LogCategory::Menubar,
+        "info",
+        state_dir,
+    )
+}
+
 pub fn run() {
     icons::validate();
 
@@ -146,7 +171,6 @@ pub fn run() {
         event_loop.set_activation_policy(ActivationPolicy::Accessory);
     }
 
-    // Forward tray/menu events into the tao event loop
     let proxy = event_loop.create_proxy();
     TrayIconEvent::set_event_handler(Some(move |event| {
         let _ = proxy.send_event(UserEvent::TrayIcon(event));
@@ -156,7 +180,6 @@ pub fn run() {
         let _ = proxy.send_event(UserEvent::Menu(event));
     }));
 
-    // Spawn async runtime on background thread
     let cmd_tx = bridge::spawn_async_runtime(event_loop.create_proxy());
 
     let mut app = App::new(cmd_tx);
