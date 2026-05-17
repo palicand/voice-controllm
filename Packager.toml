@@ -23,8 +23,9 @@ resources = [
     { src = "scripts/install-vcmctl-cli.sh",              target = "install-vcmctl-cli.sh" },
 ]
 
-# Bundle/install formats to produce
-formats = ["app", "dmg"]
+# DMG creation moved to CI step to allow signing the .app first;
+# cargo-packager seals the .dmg with the unsigned .app contents otherwise.
+formats = ["app"]
 
 [macos]
 info_plist_path = "assets/macos/Info.plist"
