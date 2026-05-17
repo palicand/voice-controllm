@@ -152,7 +152,11 @@ impl App {
 
 pub fn init_logging() -> anyhow::Result<()> {
     let state_dir = vcm_common::dirs::state_dir()?;
-    vcm_platform::logging::init("menubar", "info", state_dir)
+    vcm_platform::logging::init(
+        vcm_platform::logging::LogCategory::Menubar,
+        "info",
+        state_dir,
+    )
 }
 
 pub fn run() {

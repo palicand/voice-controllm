@@ -15,7 +15,11 @@ pub async fn run() -> anyhow::Result<()> {
     let config = config::Config::load().unwrap_or_default();
     let state_dir = vcm_common::dirs::state_dir()?;
 
-    vcm_platform::logging::init("daemon", config.logging.level.as_directive(), state_dir)?;
+    vcm_platform::logging::init(
+        vcm_platform::logging::LogCategory::Daemon,
+        config.logging.level.as_directive(),
+        state_dir,
+    )?;
 
     whisper_rs::install_logging_hooks();
 

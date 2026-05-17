@@ -7,9 +7,26 @@ pub const LOG_SUBSYSTEM: &str = "com.github.palicand.vcm";
 pub const VCM_LOG_ENV: &str = "VCM_LOG";
 pub const VCM_LOG_FILE_ENV: &str = "VCM_LOG_FILE";
 
+/// Identifies the binary emitting log records. Used as the os_log category and
+/// the file-sink filename stem.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LogCategory {
+    Daemon,
+    Menubar,
+}
+
+impl LogCategory {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            LogCategory::Daemon => "daemon",
+            LogCategory::Menubar => "menubar",
+        }
+    }
+}
+
 pub struct InitOptions<'a> {
     pub subsystem: &'a str,
-    pub category: &'a str,
+    pub category: LogCategory,
     pub filter: EnvFilter,
     /// If Some, also write logs to a rolling file in this directory.
     pub with_file_sink_dir: Option<PathBuf>,
@@ -28,7 +45,7 @@ pub trait LoggingSink {
 /// `default_directive` is the EnvFilter default (e.g. `"info"`); it is overridden by the
 /// `VCM_LOG` env var. When `VCM_LOG_FILE` is set, a rolling file sink is added at
 /// `state_dir/<category>.log` in addition to the platform sink.
-pub fn init(category: &str, default_directive: &str, state_dir: PathBuf) -> Result<()> {
+pub fn init(category: LogCategory, default_directive: &str, state_dir: PathBuf) -> Result<()> {
     let filter = EnvFilter::builder()
         .with_env_var(VCM_LOG_ENV)
         .with_default_directive(default_directive.parse().context("parse log directive")?)

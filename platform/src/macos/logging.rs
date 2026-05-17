@@ -5,7 +5,7 @@ use tracing::Subscriber;
 use tracing_oslog::OsLogger;
 use tracing_subscriber::{Registry, fmt, layer::SubscriberExt};
 
-use crate::logging::{InitOptions, LoggingSink};
+use crate::logging::{InitOptions, LogCategory, LoggingSink};
 
 pub struct MacOsLogging;
 
@@ -15,7 +15,7 @@ impl LoggingSink for MacOsLogging {
         registry: Registry,
         opts: InitOptions<'_>,
     ) -> Result<Box<dyn Subscriber + Send + Sync>> {
-        let oslog = OsLogger::new(opts.subsystem, opts.category);
+        let oslog = OsLogger::new(opts.subsystem, opts.category.as_str());
         let env_filter = opts.filter;
 
         if let Some(dir) = opts.with_file_sink_dir {
@@ -32,11 +32,11 @@ impl LoggingSink for MacOsLogging {
 
 fn file_writer(
     dir: PathBuf,
-    category: &str,
+    category: LogCategory,
 ) -> Result<tracing_appender::rolling::RollingFileAppender> {
     std::fs::create_dir_all(&dir).context("Failed to create log dir")?;
     Ok(tracing_appender::rolling::never(
         dir,
-        format!("{category}.log"),
+        format!("{}.log", category.as_str()),
     ))
 }
