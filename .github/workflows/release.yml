@@ -14,6 +14,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Stamp version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-].+)?$ ]]; then
+            echo "::error::Tag '${GITHUB_REF_NAME}' is not a semver release tag"
+            exit 1
+          fi
+          sed -i '' -E 's/^version = "0\.0\.0-dev"$/version = "'"$VERSION"'"/' Cargo.toml
+          grep -q "^version = \"$VERSION\"$" Cargo.toml || { echo "::error::Failed to stamp workspace version"; exit 1; }
+          sed -i '' "s/__VERSION__/$VERSION/g" assets/macos/Info.plist assets/macos/vcmd-Info.plist
+
       - name: Cache cargo registry + target
         uses: Swatinem/rust-cache@v2
         with:
@@ -23,7 +34,7 @@ jobs:
       - name: Verify icon present
         run: test -f assets/icon/AppIcon.icns || { echo "::error::assets/icon/AppIcon.icns missing — block on real icon per launch design"; exit 1; }
 
-      - name: Determine signing capability
+      - name: Verify signing secrets present
         id: signing
         env:
           APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
@@ -33,24 +44,19 @@ jobs:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_KEY_ISSUER_ID: ${{ secrets.APPLE_API_KEY_ISSUER_ID }}
         run: |
-          if [[ -n "$APPLE_DEVELOPER_ID" && -n "$APPLE_CERT_P12_BASE64" && -n "$APPLE_CERT_PASSWORD" ]]; then
-            echo "Developer ID signing enabled"
-            echo "sign_developer_id=true" >> "$GITHUB_OUTPUT"
-            SIGN_DEVELOPER_ID=true
-          else
-            echo "::notice::Developer ID secrets absent — falling back to ad-hoc signing. End users will see a Gatekeeper warning."
-            echo "sign_developer_id=false" >> "$GITHUB_OUTPUT"
-            SIGN_DEVELOPER_ID=false
+          missing=()
+          [[ -z "$APPLE_DEVELOPER_ID"     ]] && missing+=(APPLE_DEVELOPER_ID)
+          [[ -z "$APPLE_CERT_P12_BASE64"  ]] && missing+=(APPLE_CERT_P12_BASE64)
+          [[ -z "$APPLE_CERT_PASSWORD"    ]] && missing+=(APPLE_CERT_PASSWORD)
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "::error::Missing required signing secrets: ${missing[*]}"
+            exit 1
           fi
-          if [[ "$SIGN_DEVELOPER_ID" == "true" && -n "$APPLE_API_KEY_BASE64" && -n "$APPLE_API_KEY_ID" && -n "$APPLE_API_KEY_ISSUER_ID" ]]; then
+          if [[ -n "$APPLE_API_KEY_BASE64" && -n "$APPLE_API_KEY_ID" && -n "$APPLE_API_KEY_ISSUER_ID" ]]; then
             echo "Notarization enabled"
             echo "notarize=true" >> "$GITHUB_OUTPUT"
           else
-            if [[ "$SIGN_DEVELOPER_ID" != "true" ]]; then
-              echo "::notice::Notarization requires Developer ID signing — skipping notarytool submission."
-            else
-              echo "::notice::Notarization API key secrets absent — skipping notarytool submission."
-            fi
+            echo "::notice::Notarization API key secrets absent — skipping notarytool submission."
             echo "notarize=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -65,7 +71,6 @@ jobs:
         run: cargo install cargo-packager --locked --version "~0"
 
       - name: Import signing certificate
-        if: steps.signing.outputs.sign_developer_id == 'true'
         env:
           APPLE_CERT_P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
           APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
@@ -101,8 +106,7 @@ jobs:
           test -d "$APP" || { echo "::error::Expected .app not found at $APP"; exit 1; }
           echo "APP_PATH=$APP" >> "$GITHUB_ENV"
 
-      - name: Codesign the bundle (Developer ID)
-        if: steps.signing.outputs.sign_developer_id == 'true'
+      - name: Codesign the bundle
         env:
           APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
         run: |
@@ -110,12 +114,6 @@ jobs:
               --entitlements assets/macos/entitlements.plist \
               --sign "$APPLE_DEVELOPER_ID" \
               "$APP_PATH"
-          codesign --verify --deep --strict "$APP_PATH"
-
-      - name: Codesign the bundle (ad-hoc fallback)
-        if: steps.signing.outputs.sign_developer_id != 'true'
-        run: |
-          codesign --force --deep --sign - "$APP_PATH"
           codesign --verify --deep --strict "$APP_PATH"
 
       - name: Build DMG from signed .app
@@ -133,8 +131,7 @@ jobs:
           rm -rf "$STAGE"
           echo "DMG_PATH=$DMG_NAME" >> "$GITHUB_ENV"
 
-      - name: Sign DMG (Developer ID)
-        if: steps.signing.outputs.sign_developer_id == 'true'
+      - name: Sign DMG
         env:
           APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
         run: codesign --sign "$APPLE_DEVELOPER_ID" --timestamp "$DMG_PATH"
@@ -156,19 +153,14 @@ jobs:
       - name: Build standalone vcmctl tarball
         env:
           APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
-          SIGN_DEVELOPER_ID: ${{ steps.signing.outputs.sign_developer_id }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           STAGE=$RUNNER_TEMP/vcmctl-stage
           mkdir -p "$STAGE"
           cp target/aarch64-apple-darwin/release/vcmctl "$STAGE/vcmctl"
-          if [[ "$SIGN_DEVELOPER_ID" == "true" ]]; then
-            codesign --force --options runtime --timestamp \
-              --sign "$APPLE_DEVELOPER_ID" \
-              "$STAGE/vcmctl"
-          else
-            codesign --force --sign - "$STAGE/vcmctl"
-          fi
+          codesign --force --options runtime --timestamp \
+            --sign "$APPLE_DEVELOPER_ID" \
+            "$STAGE/vcmctl"
           tar -C "$STAGE" -czf "vcmctl-${VERSION}-aarch64-apple-darwin.tar.gz" vcmctl
           echo "VCMCTL_TARBALL=vcmctl-${VERSION}-aarch64-apple-darwin.tar.gz" >> "$GITHUB_ENV"
 
@@ -179,10 +171,11 @@ jobs:
 
       - name: Compose release notes prelude
         run: |
+          VERSION="${GITHUB_REF_NAME#v}"
           {
-            if [[ "${{ steps.signing.outputs.sign_developer_id }}" == "false" ]]; then
-              cat <<'EOF'
-            > **First launch on macOS:** VCM v0.1 is ad-hoc-signed (not notarized by Apple). On first launch you may see "VCM cannot be opened because the developer cannot be verified." Bypass: right-click `VCM.app` in Finder → **Open** → click "Open" in the confirmation dialog. Only needed once. Alternative: `xattr -d com.apple.quarantine /Applications/VCM.app`.
+            if [[ "${{ steps.signing.outputs.notarize }}" == "false" ]]; then
+              sed "s/__VERSION__/$VERSION/g" <<'EOF'
+            > **First launch on macOS:** VCM v__VERSION__ is signed but not notarized by Apple. On first launch you may see "VCM cannot be opened because the developer cannot be verified." Bypass: right-click `VCM.app` in Finder → **Open** → click "Open" in the confirmation dialog. Only needed once. Alternative: `xattr -dr com.apple.quarantine /Applications/VCM.app` (the `-r` is required so the menubar and daemon binaries inside the bundle are also de-quarantined).
           EOF
             fi
           } > release-notes-prelude.md

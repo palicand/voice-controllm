@@ -3,19 +3,17 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key>
-    <string>com.github.palicand.vcm</string>
+    <string>com.github.palicand.vcm.daemon</string>
     <key>CFBundleName</key>
-    <string>VCM</string>
+    <string>VCM Daemon</string>
     <key>CFBundleDisplayName</key>
-    <string>VCM</string>
+    <string>VCM Daemon</string>
     <key>CFBundleExecutable</key>
-    <string>vcm</string>
+    <string>vcmd</string>
     <key>CFBundleVersion</key>
     <string>__VERSION__</string>
     <key>CFBundleShortVersionString</key>
     <string>__VERSION__</string>
-    <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>LSMinimumSystemVersion</key>

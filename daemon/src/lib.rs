@@ -23,5 +23,27 @@ pub async fn run() -> anyhow::Result<()> {
 
     whisper_rs::install_logging_hooks();
 
+    if !vcm_platform::accessibility::is_trusted_or_prompt() {
+        tracing::warn!(
+            "Accessibility permission not granted; system prompt was shown. \
+             Keystroke injection will fail until granted."
+        );
+    }
+
+    match vcm_platform::microphone::request_or_status() {
+        vcm_platform::microphone::MicrophoneStatus::Authorized
+        | vcm_platform::microphone::MicrophoneStatus::NotSupported => {}
+        vcm_platform::microphone::MicrophoneStatus::Pending => {
+            tracing::warn!(
+                "Microphone permission prompt shown; audio capture will start once granted."
+            );
+        }
+        vcm_platform::microphone::MicrophoneStatus::Denied => {
+            tracing::error!(
+                "Microphone permission denied. Grant it in System Settings → Privacy & Security → Microphone."
+            );
+        }
+    }
+
     daemon::run().await
 }

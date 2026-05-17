@@ -19,6 +19,12 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
+accessibility-sys = "0.2.0"
+block2 = "0.6.2"
+core-foundation = "0.10.1"
 dirs = "6.0.0"
+objc2 = "0.6.4"
+objc2-av-foundation = { version = "0.3.2", features = ["AVCaptureDevice", "AVMediaFormat", "block2"] }
+objc2-foundation = "0.3.2"
 tracing-appender = "0.2.5"
 tracing-oslog = "0.3.0"
