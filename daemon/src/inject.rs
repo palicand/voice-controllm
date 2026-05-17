@@ -1,38 +1,25 @@
-//! Keystroke injection for transcribed text.
-//!
-//! Injects text as keystrokes into the focused application, with optional
-//! filtering based on an application allowlist.
-
 use crate::config::InjectionConfig;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use enigo::{Enigo, Keyboard, Settings};
 use tracing::{debug, info, warn};
 
-/// Injects transcribed text as keystrokes.
 pub struct KeystrokeInjector {
     config: InjectionConfig,
     enigo: Enigo,
 }
 
 impl KeystrokeInjector {
-    /// Create a new keystroke injector with the given configuration.
-    ///
-    /// On macOS, this requires Accessibility permissions to be granted.
     pub fn new(config: InjectionConfig) -> Result<Self> {
         let enigo = Enigo::new(&Settings::default())
-            .map_err(|e| anyhow::anyhow!("Failed to initialize enigo: {}", e))?;
+            .map_err(anyhow::Error::new)
+            .context("initialize enigo")?;
 
         Ok(Self { config, enigo })
     }
 
-    /// Inject text as keystrokes into the focused application.
-    ///
-    /// If an allowlist is configured and the focused application is not in it,
-    /// the text will not be injected and this method returns Ok(()).
     pub fn inject_text(&mut self, text: &str) -> Result<()> {
-        // Check allowlist if configured
         if !self.config.allowlist.is_empty() {
-            let frontmost = get_frontmost_app().unwrap_or_else(|e| {
+            let frontmost = vcm_platform::frontmost::current().unwrap_or_else(|e| {
                 warn!(error = %e, "Failed to get frontmost app, skipping allowlist check");
                 String::new()
             });
@@ -46,16 +33,15 @@ impl KeystrokeInjector {
             }
         }
 
-        // Inject the text
         info!(text = %text, "Injecting text as keystrokes");
         self.enigo
             .text(text)
-            .map_err(|e| anyhow::anyhow!("Failed to inject text: {}", e))?;
+            .map_err(anyhow::Error::new)
+            .context("inject text")?;
 
         Ok(())
     }
 
-    /// Check if an application is in the allowlist.
     fn is_allowed(&self, app_name: &str) -> bool {
         let app_lower = app_name.to_lowercase();
         self.config
@@ -63,11 +49,6 @@ impl KeystrokeInjector {
             .iter()
             .any(|allowed| app_lower.contains(&allowed.to_lowercase()))
     }
-}
-
-/// Get the name of the frontmost (focused) application via the platform layer.
-fn get_frontmost_app() -> Result<String> {
-    vcm_platform::frontmost::current()
 }
 
 #[cfg(test)]

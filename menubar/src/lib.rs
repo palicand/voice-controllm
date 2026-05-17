@@ -5,7 +5,6 @@ mod tray;
 
 use std::sync::mpsc;
 
-use anyhow::Context;
 use tao::event::Event;
 use tao::event_loop::{ControlFlow, EventLoopBuilder};
 use tray_icon::TrayIconEvent;
@@ -115,10 +114,16 @@ impl App {
                 return ControlFlow::Exit;
             }
             AppEvent::StateChanged(new_state) => {
+                if new_state == self.current_state {
+                    return ControlFlow::Wait;
+                }
                 self.current_state = new_state;
                 self.rebuild_menu();
             }
             AppEvent::LanguageChanged(info) => {
+                if info == self.language {
+                    return ControlFlow::Wait;
+                }
                 self.language = info;
                 self.rebuild_menu();
             }
@@ -138,28 +143,8 @@ impl App {
 }
 
 pub fn init_logging() -> anyhow::Result<()> {
-    let filter = tracing_subscriber::EnvFilter::builder()
-        .with_env_var("VCM_LOG")
-        .with_default_directive(tracing::Level::INFO.into())
-        .from_env_lossy();
-
-    let with_file_sink_dir = if std::env::var("VCM_LOG_FILE").is_ok() {
-        let dir =
-            vcm_common::dirs::state_dir().context("VCM_LOG_FILE set but state dir unresolvable")?;
-        Some(dir)
-    } else {
-        None
-    };
-
-    let subscriber = vcm_platform::logging::build_subscriber(vcm_platform::logging::InitOptions {
-        subsystem: vcm_platform::logging::LOG_SUBSYSTEM,
-        category: "menubar",
-        filter,
-        with_file_sink_dir,
-    })?;
-    tracing::subscriber::set_global_default(subscriber)
-        .context("install global tracing subscriber")?;
-    Ok(())
+    let state_dir = vcm_common::dirs::state_dir()?;
+    vcm_platform::logging::init("menubar", "info", state_dir)
 }
 
 pub fn run() {
@@ -174,7 +159,6 @@ pub fn run() {
         event_loop.set_activation_policy(ActivationPolicy::Accessory);
     }
 
-    // Forward tray/menu events into the tao event loop
     let proxy = event_loop.create_proxy();
     TrayIconEvent::set_event_handler(Some(move |event| {
         let _ = proxy.send_event(UserEvent::TrayIcon(event));
@@ -184,7 +168,6 @@ pub fn run() {
         let _ = proxy.send_event(UserEvent::Menu(event));
     }));
 
-    // Spawn async runtime on background thread
     let cmd_tx = bridge::spawn_async_runtime(event_loop.create_proxy());
 
     let mut app = App::new(cmd_tx);

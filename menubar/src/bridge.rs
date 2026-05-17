@@ -13,7 +13,6 @@ use vcm_common::dirs;
 
 use crate::state::{AppState, LanguageInfo};
 
-/// Events sent from the async runtime to the GUI thread.
 #[derive(Debug, Clone)]
 pub enum AppEvent {
     StateChanged(AppState),
@@ -22,7 +21,6 @@ pub enum AppEvent {
     ShutdownComplete,
 }
 
-/// Commands sent from the GUI thread to the async runtime.
 #[derive(Debug)]
 pub enum Command {
     StartListening,
@@ -32,7 +30,6 @@ pub enum Command {
     InstallCli,
 }
 
-/// User events for the tao event loop.
 pub enum UserEvent {
     #[allow(dead_code)]
     TrayIcon(tray_icon::TrayIconEvent),
@@ -44,8 +41,6 @@ const RECONNECT_INTERVAL: Duration = Duration::from_secs(2);
 const DAEMON_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const DAEMON_POLL_ATTEMPTS: usize = 50;
 
-/// Spawn the tokio async runtime on a background thread.
-/// Returns a sender for GUI -> async commands.
 pub fn spawn_async_runtime(event_proxy: EventLoopProxy<UserEvent>) -> mpsc::Sender<Command> {
     let (cmd_tx, cmd_rx) = mpsc::channel::<Command>();
 
@@ -62,13 +57,16 @@ pub fn spawn_async_runtime(event_proxy: EventLoopProxy<UserEvent>) -> mpsc::Send
 }
 
 async fn async_main(event_proxy: EventLoopProxy<UserEvent>, cmd_rx: mpsc::Receiver<Command>) {
-    // Listen for SIGTERM/SIGINT to trigger graceful shutdown
     let signal_proxy = event_proxy.clone();
     tokio::spawn(async move {
-        let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-            .expect("failed to register SIGTERM handler");
-        let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
-            .expect("failed to register SIGINT handler");
+        use tokio::signal::unix::{SignalKind, signal};
+        let (Ok(mut sigterm), Ok(mut sigint)) = (
+            signal(SignalKind::terminate()),
+            signal(SignalKind::interrupt()),
+        ) else {
+            tracing::warn!("failed to register signal handlers — graceful shutdown disabled");
+            return;
+        };
         tokio::select! {
             _ = sigterm.recv() => {}
             _ = sigint.recv() => {}
@@ -85,7 +83,6 @@ async fn async_main(event_proxy: EventLoopProxy<UserEvent>, cmd_rx: mpsc::Receiv
         }
     };
 
-    // Spawn daemon if not running
     if !client::is_daemon_running(&socket_path).await {
         if let Err(e) = spawn_daemon() {
             tracing::error!("Failed to spawn daemon: {e}");
@@ -93,7 +90,6 @@ async fn async_main(event_proxy: EventLoopProxy<UserEvent>, cmd_rx: mpsc::Receiv
             return;
         }
 
-        // Wait for daemon to be ready
         let mut connected = false;
         for _ in 0..DAEMON_POLL_ATTEMPTS {
             tokio::time::sleep(DAEMON_POLL_INTERVAL).await;
@@ -111,7 +107,6 @@ async fn async_main(event_proxy: EventLoopProxy<UserEvent>, cmd_rx: mpsc::Receiv
         }
     }
 
-    // Main connection loop (reconnects on disconnect)
     loop {
         match run_connected(&socket_path, &event_proxy, &cmd_rx).await {
             ConnectionResult::Shutdown => break,
@@ -143,18 +138,15 @@ async fn run_connected(
         }
     };
 
-    // Get initial state
     if let Ok(status) = grpc_client.get_status(Empty {}).await {
         let state = status_to_app_state(status.into_inner());
         send_state(event_proxy, state);
     }
 
-    // Get initial language info
     if let Ok(resp) = grpc_client.get_language(Empty {}).await {
         send_language(event_proxy, resp.into_inner());
     }
 
-    // Subscribe to events
     let mut stream = match client::subscribe(&mut grpc_client).await {
         Ok(s) => s,
         Err(e) => {
@@ -163,9 +155,7 @@ async fn run_connected(
         }
     };
 
-    // Event + command processing loop
     loop {
-        // Check for GUI commands (non-blocking)
         match cmd_rx.try_recv() {
             Ok(Command::Shutdown) => {
                 let _ = grpc_client.shutdown(Empty {}).await;
@@ -195,7 +185,7 @@ async fn run_connected(
                         continue;
                     }
                 };
-                let vcmctl = resolve_bundled_vcmctl_path(&current_exe);
+                let vcmctl = vcm_common::bundle::resolve(&current_exe, vcm_common::bundle::VCMCTL);
                 let script = install_script_path(&current_exe);
 
                 let applescript = format!(
@@ -237,9 +227,7 @@ async fn run_connected(
             Ok(Ok(None)) | Ok(Err(_)) => {
                 return ConnectionResult::Disconnected;
             }
-            Err(_) => {
-                // Timeout - continue loop to check commands
-            }
+            Err(_) => {}
         }
     }
 }
@@ -312,30 +300,8 @@ fn applescript_quote(s: &str) -> String {
     format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
 }
 
-/// Resolve the path to bundled `vcmctl` based on the current executable's location.
-///
-/// In a macOS .app bundle, vcmctl lives at `Contents/Resources/bin/vcmctl`.
-/// In dev builds, it's a sibling of `vcm`.
-fn resolve_bundled_vcmctl_path(current_exe: &std::path::Path) -> std::path::PathBuf {
-    let parent = current_exe
-        .parent()
-        .map(std::path::Path::to_path_buf)
-        .unwrap_or_default();
-
-    if parent.ends_with("Contents/MacOS") {
-        parent
-            .parent()
-            .map(|contents| contents.join("Resources").join("bin").join("vcmctl"))
-            .unwrap_or_else(|| parent.join("vcmctl"))
-    } else {
-        parent.join("vcmctl")
-    }
-}
-
-/// Resolve the path to the install-vcmctl-cli.sh script.
-///
-/// In a bundle: `Contents/Resources/install-vcmctl-cli.sh`.
-/// In dev: `scripts/install-vcmctl-cli.sh` relative to the workspace root.
+/// In a bundle, the script lives at `Contents/Resources/install-vcmctl-cli.sh`.
+/// In dev (`target/<profile>/vcm`), walk up two levels to the workspace root.
 fn install_script_path(current_exe: &std::path::Path) -> std::path::PathBuf {
     let parent = current_exe
         .parent()
@@ -348,8 +314,6 @@ fn install_script_path(current_exe: &std::path::Path) -> std::path::PathBuf {
             .map(|contents| contents.join("Resources").join("install-vcmctl-cli.sh"))
             .unwrap_or_else(|| parent.join("install-vcmctl-cli.sh"))
     } else {
-        // Dev: walk up from target/<profile>/vcm to workspace root, then scripts/.
-        // target/debug/vcm → target/debug → target → <root>
         parent
             .parent()
             .and_then(|p| p.parent())
@@ -358,30 +322,9 @@ fn install_script_path(current_exe: &std::path::Path) -> std::path::PathBuf {
     }
 }
 
-/// Resolve the path to `vcmd` based on the current executable's location.
-///
-/// When running from inside a macOS .app bundle (`.../Contents/MacOS/vcm`),
-/// `vcmd` lives at `.../Contents/Resources/vcmd`. Otherwise (dev / cargo install)
-/// they are siblings.
-fn resolve_vcmd_path(current_exe: &std::path::Path) -> std::path::PathBuf {
-    let parent = current_exe
-        .parent()
-        .map(std::path::Path::to_path_buf)
-        .unwrap_or_default();
-
-    if parent.ends_with("Contents/MacOS") {
-        parent
-            .parent()
-            .map(|contents| contents.join("Resources").join("vcmd"))
-            .unwrap_or_else(|| parent.join("vcmd"))
-    } else {
-        parent.join("vcmd")
-    }
-}
-
 fn spawn_daemon() -> anyhow::Result<()> {
     let current_exe = std::env::current_exe().context("get current exe")?;
-    let daemon_path = resolve_vcmd_path(&current_exe);
+    let daemon_path = vcm_common::bundle::resolve(&current_exe, vcm_common::bundle::VCMD);
 
     if !daemon_path.exists() {
         anyhow::bail!("Daemon binary not found at: {}", daemon_path.display());
@@ -397,63 +340,9 @@ fn spawn_daemon() -> anyhow::Result<()> {
 }
 
 #[cfg(test)]
-mod vcmd_path_tests {
+mod tests {
     use super::*;
     use std::path::PathBuf;
-
-    #[test]
-    fn dev_build_uses_sibling() {
-        let exe = PathBuf::from("/Users/x/proj/target/debug/vcm");
-        assert_eq!(
-            resolve_vcmd_path(&exe),
-            PathBuf::from("/Users/x/proj/target/debug/vcmd")
-        );
-    }
-
-    #[test]
-    fn bundled_uses_resources_dir() {
-        let exe = PathBuf::from("/Applications/VCM.app/Contents/MacOS/vcm");
-        assert_eq!(
-            resolve_vcmd_path(&exe),
-            PathBuf::from("/Applications/VCM.app/Contents/Resources/vcmd")
-        );
-    }
-
-    #[test]
-    fn release_build_uses_sibling() {
-        let exe = PathBuf::from("/Users/x/proj/target/release/vcm");
-        assert_eq!(
-            resolve_vcmd_path(&exe),
-            PathBuf::from("/Users/x/proj/target/release/vcmd")
-        );
-    }
-
-    #[test]
-    fn cargo_install_uses_sibling() {
-        let exe = PathBuf::from("/Users/x/.cargo/bin/vcm");
-        assert_eq!(
-            resolve_vcmd_path(&exe),
-            PathBuf::from("/Users/x/.cargo/bin/vcmd")
-        );
-    }
-
-    #[test]
-    fn bundled_vcmctl_in_resources_bin() {
-        let exe = PathBuf::from("/Applications/VCM.app/Contents/MacOS/vcm");
-        assert_eq!(
-            resolve_bundled_vcmctl_path(&exe),
-            PathBuf::from("/Applications/VCM.app/Contents/Resources/bin/vcmctl")
-        );
-    }
-
-    #[test]
-    fn dev_vcmctl_is_sibling() {
-        let exe = PathBuf::from("/Users/x/proj/target/debug/vcm");
-        assert_eq!(
-            resolve_bundled_vcmctl_path(&exe),
-            PathBuf::from("/Users/x/proj/target/debug/vcmctl")
-        );
-    }
 
     #[test]
     fn bundled_script_in_resources() {

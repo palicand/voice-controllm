@@ -40,10 +40,7 @@ fn test_is_allowed_partial_match() {
 #[cfg(target_os = "macos")]
 #[test]
 fn test_get_frontmost_app() {
-    // This test requires a running macOS GUI session
-    let result = get_frontmost_app();
-    // Should succeed if running in a GUI session
-    if let Ok(app) = result {
+    if let Ok(app) = vcm_platform::frontmost::current() {
         assert!(!app.is_empty());
     }
 }

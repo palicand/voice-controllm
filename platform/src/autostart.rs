@@ -7,13 +7,15 @@ pub trait Autostart {
 }
 
 #[cfg(target_os = "macos")]
-pub fn default_backend() -> Box<dyn Autostart> {
-    Box::new(crate::macos::autostart::LaunchAgent::default())
+pub fn default_backend() -> Result<Box<dyn Autostart>> {
+    Ok(Box::new(
+        crate::macos::autostart::LaunchAgent::for_current_exe()?,
+    ))
 }
 
 #[cfg(not(target_os = "macos"))]
-pub fn default_backend() -> Box<dyn Autostart> {
-    Box::new(NoopAutostart)
+pub fn default_backend() -> Result<Box<dyn Autostart>> {
+    Ok(Box::new(NoopAutostart))
 }
 
 #[cfg(not(target_os = "macos"))]

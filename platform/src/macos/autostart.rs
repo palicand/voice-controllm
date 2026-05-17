@@ -16,17 +16,14 @@ pub struct LaunchAgent {
     program_path: PathBuf,
 }
 
-impl Default for LaunchAgent {
-    fn default() -> Self {
-        Self {
-            label: crate::logging::LOG_SUBSYSTEM.to_string(),
-            program_path: std::env::current_exe()
-                .unwrap_or_else(|_| PathBuf::from("/Applications/VCM.app/Contents/MacOS/vcm")),
-        }
-    }
-}
-
 impl LaunchAgent {
+    pub fn for_current_exe() -> Result<Self> {
+        Ok(Self {
+            label: crate::logging::LOG_SUBSYSTEM.to_string(),
+            program_path: std::env::current_exe().context("resolve current exe for LaunchAgent")?,
+        })
+    }
+
     fn plist_path(&self) -> Result<PathBuf> {
         let home = dirs::home_dir().context("no home dir")?;
         Ok(home
