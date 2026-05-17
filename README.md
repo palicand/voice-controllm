@@ -42,7 +42,7 @@ Offline voice dictation utility for macOS accessibility. Designed to replace App
 1. Download `VCM-X.Y.Z-aarch64.dmg` from the [latest release](https://github.com/palicand/voice-controllm/releases/latest).
 2. Open the DMG, drag VCM.app to Applications.
 3. Launch VCM (see "First launch" below if you hit a Gatekeeper warning). The microphone icon will appear in the menu bar.
-4. To use `vcmctl` from the terminal, click the menu icon → "Install vcmctl in PATH". (You'll be prompted for your admin password to create the symlink.)
+4. To use `vcmctl` from the terminal, click the menu icon → "Install vcmctl in PATH". This creates a symlink at `~/.local/bin/vcmctl` — no admin password required. If `~/.local/bin` isn't on your `PATH`, VCM copies the right `export PATH=…` line to your clipboard.
 
 ### First launch
 VCM v0.1 is **ad-hoc-signed** (the project hasn't enrolled in the paid Apple Developer Program yet). On first launch macOS will show:
@@ -72,11 +72,15 @@ cargo build --release
 This installs three binaries: `vcmd` (daemon), `vcmctl` (CLI), and `vcm` (menu bar app).
 
 ## Logs
-VCM logs to the macOS unified logging system. View in Console.app (filter by subsystem `com.github.palicand.vcm`) or from terminal:
+
+VCM logs to the macOS unified logging system. View in Console.app (filter by subsystem `com.github.palicand.vcm`) or from the terminal:
 
 ```bash
 log stream --predicate 'subsystem == "com.github.palicand.vcm"' --info
+log show   --predicate 'subsystem == "com.github.palicand.vcm"' --last 5m
 ```
+
+To also write logs to a rolling file for troubleshooting, set `VCM_LOG_FILE=1` before launching. The daemon writes to `~/.local/state/vcm/daemon.log` and the menubar app to `~/.local/state/vcm/menubar.log`. Override the verbosity with `VCM_LOG=debug` (or any `tracing` directive).
 
 ## Quick Start
 
@@ -133,14 +137,6 @@ cargo doc --open
 ## Known Issues
 
 **Slow CoreML model loading on every start** — The CoreML encoder model recompiles for the device on each daemon launch instead of being cached by macOS. This is an [upstream whisper.cpp issue](https://github.com/ggml-org/whisper.cpp/issues/2126) that affects larger models (medium, large, large-v3-turbo). Smaller models (tiny, base) cache more reliably. macOS 15+ has improved caching. Clearing `~/Library/Application Support/coreMLCache/` and restarting may help.
-
-## Logging
-
-Daemon logs are written to `~/.local/state/vcm/daemon.log`. Set the log level in config or override with `VCM_LOG`:
-
-```bash
-VCM_LOG=debug vcmctl start
-```
 
 ## License
 
