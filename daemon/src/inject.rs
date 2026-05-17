@@ -4,9 +4,8 @@
 //! filtering based on an application allowlist.
 
 use crate::config::InjectionConfig;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use enigo::{Enigo, Keyboard, Settings};
-use std::process::Command;
 use tracing::{debug, info, warn};
 
 /// Injects transcribed text as keystrokes.
@@ -66,31 +65,9 @@ impl KeystrokeInjector {
     }
 }
 
-/// Get the name of the frontmost (focused) application on macOS.
-#[cfg(target_os = "macos")]
+/// Get the name of the frontmost (focused) application via the platform layer.
 fn get_frontmost_app() -> Result<String> {
-    let output = Command::new("osascript")
-        .args([
-            "-e",
-            r#"tell application "System Events" to get name of first application process whose frontmost is true"#,
-        ])
-        .output()
-        .context("Failed to execute osascript")?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("osascript failed: {}", stderr.trim());
-    }
-
-    let name = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    Ok(name)
-}
-
-/// Get the name of the frontmost application (stub for non-macOS platforms).
-#[cfg(not(target_os = "macos"))]
-fn get_frontmost_app() -> Result<String> {
-    // On non-macOS platforms, return empty string to skip allowlist check
-    Ok(String::new())
+    vcm_platform::frontmost::current()
 }
 
 #[cfg(test)]

@@ -43,8 +43,7 @@ fn test_get_frontmost_app() {
     // This test requires a running macOS GUI session
     let result = get_frontmost_app();
     // Should succeed if running in a GUI session
-    if result.is_ok() {
-        let app = result.unwrap();
+    if let Ok(app) = result {
         assert!(!app.is_empty());
     }
 }

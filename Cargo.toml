@@ -30,7 +30,7 @@ workspace = true
 
 [workspace]
 resolver = "2"
-members = ["common", "daemon", "cli", "proto", "menubar"]
+members = ["common", "daemon", "cli", "proto", "menubar", "platform"]
 
 [workspace.package]
 version = "0.1.0"
