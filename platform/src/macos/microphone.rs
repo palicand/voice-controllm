@@ -2,11 +2,7 @@ use block2::StackBlock;
 use objc2::runtime::Bool;
 use objc2_av_foundation::{AVAuthorizationStatus, AVCaptureDevice, AVMediaTypeAudio};
 
-pub enum MicrophoneStatus {
-    Authorized,
-    Denied,
-    Pending,
-}
+use crate::microphone::MicrophoneStatus;
 
 pub fn request_or_status() -> MicrophoneStatus {
     let media_type =
