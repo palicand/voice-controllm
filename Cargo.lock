@@ -3746,6 +3746,7 @@ name = "vcm-platform"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dirs",
  "tracing",
  "tracing-appender",
  "tracing-oslog",

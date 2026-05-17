@@ -30,7 +30,13 @@ impl LoggingSink for MacOsLogging {
     }
 }
 
-fn file_writer(dir: PathBuf, category: &str) -> Result<tracing_appender::rolling::RollingFileAppender> {
+fn file_writer(
+    dir: PathBuf,
+    category: &str,
+) -> Result<tracing_appender::rolling::RollingFileAppender> {
     std::fs::create_dir_all(&dir).context("Failed to create log dir")?;
-    Ok(tracing_appender::rolling::never(dir, format!("{category}.log")))
+    Ok(tracing_appender::rolling::never(
+        dir,
+        format!("{category}.log"),
+    ))
 }
