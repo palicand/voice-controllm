@@ -32,7 +32,6 @@ toml = "0.8"
 tonic = "0.12"
 tower = "0.5"
 tracing = "0.1.44"
-tracing-appender = "0.2.4"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 vcm-common = { version = "0.1.0", path = "../common" }
 vcm-platform = { version = "0.1.0", path = "../platform" }

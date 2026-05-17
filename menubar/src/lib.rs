@@ -5,6 +5,7 @@ mod tray;
 
 use std::sync::mpsc;
 
+use anyhow::Context;
 use tao::event::Event;
 use tao::event_loop::{ControlFlow, EventLoopBuilder};
 use tray_icon::TrayIconEvent;
@@ -132,6 +133,31 @@ impl App {
                 .expect("failed to set icon");
         }
     }
+}
+
+pub fn init_logging() -> anyhow::Result<()> {
+    let filter = tracing_subscriber::EnvFilter::builder()
+        .with_env_var("VCM_LOG")
+        .with_default_directive(tracing::Level::INFO.into())
+        .from_env_lossy();
+
+    let with_file_sink_dir = if std::env::var("VCM_LOG_FILE").is_ok() {
+        let dir = vcm_common::dirs::state_dir()
+            .context("VCM_LOG_FILE set but state dir unresolvable")?;
+        Some(dir)
+    } else {
+        None
+    };
+
+    let subscriber = vcm_platform::logging::build_subscriber(vcm_platform::logging::InitOptions {
+        subsystem: vcm_platform::logging::LOG_SUBSYSTEM,
+        category: "menubar",
+        filter,
+        with_file_sink_dir,
+    })?;
+    tracing::subscriber::set_global_default(subscriber)
+        .context("install global tracing subscriber")?;
+    Ok(())
 }
 
 pub fn run() {
