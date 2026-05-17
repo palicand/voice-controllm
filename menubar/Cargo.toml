@@ -17,9 +17,9 @@ tokio = { version = "1.49", features = ["rt-multi-thread", "macros", "time", "si
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 tray-icon = "0.21"
-vcm-common = { version = "0.1.0", path = "../common" }
-vcm-platform = { version = "0.1.0", path = "../platform" }
-vcm-proto = { version = "0.1.0", path = "../proto" }
+vcm-common = { version = "0.1.1", path = "../common" }
+vcm-platform = { version = "0.1.1", path = "../platform" }
+vcm-proto = { version = "0.1.1", path = "../proto" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-core-foundation = { version = "0.3", default-features = false, features = ["std", "CFRunLoop"] }

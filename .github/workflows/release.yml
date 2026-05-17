@@ -182,7 +182,7 @@ jobs:
           {
             if [[ "${{ steps.signing.outputs.sign_developer_id }}" == "false" ]]; then
               cat <<'EOF'
-            > **First launch on macOS:** VCM v0.1 is ad-hoc-signed (not notarized by Apple). On first launch you may see "VCM cannot be opened because the developer cannot be verified." Bypass: right-click `VCM.app` in Finder → **Open** → click "Open" in the confirmation dialog. Only needed once. Alternative: `xattr -d com.apple.quarantine /Applications/VCM.app`.
+            > **First launch on macOS:** VCM v0.1 is ad-hoc-signed (not notarized by Apple). On first launch you may see "VCM cannot be opened because the developer cannot be verified." Bypass: right-click `VCM.app` in Finder → **Open** → click "Open" in the confirmation dialog. Only needed once. Alternative: `xattr -dr com.apple.quarantine /Applications/VCM.app` (the `-r` is required so the menubar and daemon binaries inside the bundle are also de-quarantined).
           EOF
             fi
           } > release-notes-prelude.md
