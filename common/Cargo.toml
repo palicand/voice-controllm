@@ -17,3 +17,6 @@ tonic = "0.12"
 tower = "0.5"
 vcm-proto = { version = "0.1.0", path = "../proto" }
 xdg = "3.0"
+
+[dev-dependencies]
+tempfile = "3.27.0"

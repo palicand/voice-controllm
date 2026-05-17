@@ -19,6 +19,7 @@ pub enum AppEvent {
     LanguageChanged(LanguageInfo),
     ShutdownRequested,
     ShutdownComplete,
+    InstallCompleted,
 }
 
 #[derive(Debug)]
@@ -187,28 +188,9 @@ async fn run_connected(
                 };
                 let vcmctl = vcm_common::bundle::resolve(&current_exe, vcm_common::bundle::VCMCTL);
                 let script = install_script_path(&current_exe);
-
-                let applescript = format!(
-                    r#"do shell script {} with administrator privileges"#,
-                    applescript_quote(&format!(
-                        "{} {}",
-                        shell_quote(&script.to_string_lossy()),
-                        shell_quote(&vcmctl.to_string_lossy()),
-                    )),
-                );
-
-                tokio::task::spawn_blocking(move || {
-                    let result = std::process::Command::new("osascript")
-                        .arg("-e")
-                        .arg(&applescript)
-                        .status();
-                    match result {
-                        Ok(status) if status.success() => {
-                            tracing::info!("vcmctl installed in PATH");
-                        }
-                        Ok(status) => tracing::warn!(?status, "vcmctl install failed"),
-                        Err(e) => tracing::error!(?e, "vcmctl install command failed to spawn"),
-                    }
+                let proxy = event_proxy.clone();
+                tokio::spawn(async move {
+                    run_install_flow(script, vcmctl, proxy).await;
                 });
             }
             Err(mpsc::TryRecvError::Empty) => {}
@@ -292,10 +274,6 @@ fn send_language(proxy: &EventLoopProxy<UserEvent>, resp: vcm_proto::GetLanguage
     let _ = proxy.send_event(UserEvent::App(AppEvent::LanguageChanged(info)));
 }
 
-fn shell_quote(s: &str) -> String {
-    format!("'{}'", s.replace('\'', r"'\''"))
-}
-
 fn applescript_quote(s: &str) -> String {
     format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
 }
@@ -320,6 +298,118 @@ fn install_script_path(current_exe: &std::path::Path) -> std::path::PathBuf {
             .map(|root| root.join("scripts").join("install-vcmctl-cli.sh"))
             .unwrap_or_else(|| parent.join("install-vcmctl-cli.sh"))
     }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct ShellAdvice {
+    export_line: String,
+    config_file: String,
+}
+
+/// Map the user's `$SHELL` to the right "add `~/.local/bin` to PATH" snippet
+/// and the file they should paste it into.
+fn shell_advice(shell: &str) -> ShellAdvice {
+    let basename = std::path::Path::new(shell)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("");
+    let export_path = r#"export PATH="$HOME/.local/bin:$PATH""#.to_string();
+    match basename {
+        "zsh" => ShellAdvice {
+            export_line: export_path,
+            config_file: "~/.zshrc".to_string(),
+        },
+        "bash" => ShellAdvice {
+            export_line: export_path,
+            config_file: "~/.bash_profile".to_string(),
+        },
+        "fish" => ShellAdvice {
+            export_line: "fish_add_path ~/.local/bin".to_string(),
+            config_file: "~/.config/fish/config.fish".to_string(),
+        },
+        _ => ShellAdvice {
+            export_line: export_path,
+            config_file: "your shell's startup file (e.g. ~/.zshrc)".to_string(),
+        },
+    }
+}
+
+async fn run_install_flow(
+    script: std::path::PathBuf,
+    vcmctl: std::path::PathBuf,
+    proxy: EventLoopProxy<UserEvent>,
+) {
+    let install_status = tokio::process::Command::new("bash")
+        .arg(&script)
+        .arg(&vcmctl)
+        .status()
+        .await;
+    let status = match install_status {
+        Ok(s) => s,
+        Err(e) => {
+            tracing::error!(?e, "vcmctl install command failed to spawn");
+            return;
+        }
+    };
+    if !status.success() {
+        tracing::warn!(?status, "vcmctl install failed");
+        return;
+    }
+    tracing::info!("vcmctl installed at ~/.local/bin/vcmctl");
+
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    let on_path = tokio::process::Command::new(&shell)
+        .arg("-l")
+        .arg("-c")
+        .arg("command -v vcmctl")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .await
+        .map(|s| s.success())
+        .unwrap_or(false);
+
+    if !on_path {
+        let advice = shell_advice(&shell);
+        if let Err(e) = copy_to_clipboard(&advice.export_line).await {
+            tracing::warn!(?e, "failed to copy export line to clipboard");
+        }
+        if let Err(e) = show_path_advice_dialog(&advice).await {
+            tracing::warn!(?e, "failed to show PATH advice dialog");
+        }
+    }
+
+    let _ = proxy.send_event(UserEvent::App(AppEvent::InstallCompleted));
+}
+
+async fn copy_to_clipboard(line: &str) -> std::io::Result<()> {
+    use tokio::io::AsyncWriteExt;
+    let mut child = tokio::process::Command::new("pbcopy")
+        .stdin(std::process::Stdio::piped())
+        .spawn()?;
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(line.as_bytes()).await?;
+    }
+    child.wait().await?;
+    Ok(())
+}
+
+async fn show_path_advice_dialog(advice: &ShellAdvice) -> std::io::Result<()> {
+    let body = format!(
+        "vcmctl was installed at ~/.local/bin/vcmctl, but that directory isn't on your PATH yet.\n\nThe command has been copied to your clipboard:\n\n    {}\n\nPaste it into {} and restart your terminal.",
+        advice.export_line, advice.config_file
+    );
+    let applescript = format!(
+        "display dialog {} buttons {{\"OK\"}} default button \"OK\" with icon note with title \"VCM\"",
+        applescript_quote(&body)
+    );
+    tokio::process::Command::new("osascript")
+        .arg("-e")
+        .arg(&applescript)
+        .status()
+        .await?;
+    Ok(())
 }
 
 fn spawn_daemon() -> anyhow::Result<()> {
@@ -363,21 +453,6 @@ mod tests {
     }
 
     #[test]
-    fn shell_quote_simple() {
-        assert_eq!(shell_quote("foo"), "'foo'");
-    }
-
-    #[test]
-    fn shell_quote_with_space() {
-        assert_eq!(shell_quote("/Users/A B/bin/x"), "'/Users/A B/bin/x'");
-    }
-
-    #[test]
-    fn shell_quote_with_single_quote() {
-        assert_eq!(shell_quote("it's"), r"'it'\''s'");
-    }
-
-    #[test]
     fn applescript_quote_simple() {
         assert_eq!(applescript_quote("foo"), "\"foo\"");
     }
@@ -390,5 +465,44 @@ mod tests {
     #[test]
     fn applescript_quote_with_backslash() {
         assert_eq!(applescript_quote(r"a\b"), r#""a\\b""#);
+    }
+
+    #[test]
+    fn shell_advice_zsh() {
+        let a = shell_advice("/bin/zsh");
+        assert_eq!(a.export_line, r#"export PATH="$HOME/.local/bin:$PATH""#);
+        assert_eq!(a.config_file, "~/.zshrc");
+    }
+
+    #[test]
+    fn shell_advice_bash() {
+        let a = shell_advice("/bin/bash");
+        assert_eq!(a.export_line, r#"export PATH="$HOME/.local/bin:$PATH""#);
+        assert_eq!(a.config_file, "~/.bash_profile");
+    }
+
+    #[test]
+    fn shell_advice_fish() {
+        let a = shell_advice("/opt/homebrew/bin/fish");
+        assert_eq!(a.export_line, "fish_add_path ~/.local/bin");
+        assert_eq!(a.config_file, "~/.config/fish/config.fish");
+    }
+
+    #[test]
+    fn shell_advice_unknown_defaults_to_zsh_line_with_generic_file() {
+        let a = shell_advice("/usr/bin/something-weird");
+        assert_eq!(a.export_line, r#"export PATH="$HOME/.local/bin:$PATH""#);
+        assert!(
+            a.config_file.contains("startup file"),
+            "expected generic guidance, got {:?}",
+            a.config_file
+        );
+    }
+
+    #[test]
+    fn shell_advice_empty_defaults_to_generic() {
+        let a = shell_advice("");
+        assert!(!a.export_line.is_empty());
+        assert!(a.config_file.contains("startup file"));
     }
 }

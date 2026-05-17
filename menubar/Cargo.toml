@@ -13,7 +13,7 @@ workspace = true
 anyhow = "1.0"
 image = { version = "0.25", default-features = false, features = ["png"] }
 tao = "0.34"
-tokio = { version = "1.49", features = ["rt-multi-thread", "macros", "time", "signal"] }
+tokio = { version = "1.49", features = ["rt-multi-thread", "macros", "time", "signal", "process", "io-util"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 tray-icon = "0.21"

@@ -76,7 +76,12 @@ impl App {
                 }
                 _ => {}
             }
-        } else if event.id == self.menu_items.install_cli.id() {
+        } else if self
+            .menu_items
+            .install_cli
+            .as_ref()
+            .is_some_and(|item| event.id == *item.id())
+        {
             let _ = self.cmd_tx.send(Command::InstallCli);
         } else if let Some(code) = self.find_clicked_language(&event) {
             let _ = self.cmd_tx.send(Command::SetLanguage(code.clone()));
@@ -125,6 +130,9 @@ impl App {
                     return ControlFlow::Wait;
                 }
                 self.language = info;
+                self.rebuild_menu();
+            }
+            AppEvent::InstallCompleted => {
                 self.rebuild_menu();
             }
         }
