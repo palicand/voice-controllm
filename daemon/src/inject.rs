@@ -19,12 +19,19 @@ impl KeystrokeInjector {
 
     pub fn inject_text(&mut self, text: &str) -> Result<()> {
         if !self.config.allowlist.is_empty() {
-            let frontmost = vcm_platform::frontmost::current().unwrap_or_else(|e| {
-                warn!(error = %e, "Failed to get frontmost app, skipping allowlist check");
-                String::new()
-            });
+            let frontmost = match vcm_platform::frontmost::current() {
+                Ok(name) if !name.is_empty() => name,
+                Ok(_) => {
+                    warn!("Frontmost app lookup returned empty name; skipping injection");
+                    return Ok(());
+                }
+                Err(e) => {
+                    warn!(error = %e, "Failed to get frontmost app; skipping injection");
+                    return Ok(());
+                }
+            };
 
-            if !frontmost.is_empty() && !self.is_allowed(&frontmost) {
+            if !self.is_allowed(&frontmost) {
                 debug!(
                     app = %frontmost,
                     "Skipping injection: app not in allowlist"

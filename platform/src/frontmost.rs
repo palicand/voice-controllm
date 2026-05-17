@@ -13,6 +13,5 @@ pub fn current() -> Result<String> {
 
 #[cfg(not(target_os = "macos"))]
 pub fn current() -> Result<String> {
-    // No platform impl on non-macOS yet. Empty string short-circuits any allowlist check.
-    Ok(String::new())
+    anyhow::bail!("frontmost app lookup not supported on this platform")
 }

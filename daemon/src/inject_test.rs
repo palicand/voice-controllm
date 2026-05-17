@@ -39,8 +39,8 @@ fn test_is_allowed_partial_match() {
 
 #[cfg(target_os = "macos")]
 #[test]
+#[ignore = "requires an interactive window-server session; run locally with --ignored"]
 fn test_get_frontmost_app() {
-    if let Ok(app) = vcm_platform::frontmost::current() {
-        assert!(!app.is_empty());
-    }
+    let app = vcm_platform::frontmost::current().expect("frontmost lookup should succeed");
+    assert!(!app.is_empty(), "frontmost app name should not be empty");
 }
